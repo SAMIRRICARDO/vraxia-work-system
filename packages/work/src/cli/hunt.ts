@@ -19,11 +19,16 @@ import { VaultRetriever } from '../rag/retriever.js';
 import { CandidateKBLoader } from '../rag/candidate-kb-loader.js';
 import { CandidateKBRetriever } from '../rag/candidate-kb-retriever.js';
 import { MatchAgent } from '../agents/MatchAgent.js';
+import { HireScoreAgent } from '../agents/HireScoreAgent.js';
+import { TwinSelectorAgent } from '../agents/TwinSelectorAgent.js';
 import { QuestionnaireAgent } from '../agents/QuestionnaireAgent.js';
 import { QuestionnaireLogger } from '../agents/QuestionnaireLogger.js';
 import { TwinStore } from '../twin/candidate-twin.js';
+import { ProfessionalTwinsStore } from '../twin/professional-twins.js';
 import { CareerMemory } from '../memory/career-memory.js';
 import { JobSearchConfig, CathoSearchConfig, CathoJob, Job, ApplicationStatus, JobScore } from '../types/index.js';
+import type { HireScore } from '../types/hire-intelligence.js';
+import { HIRE_THRESHOLD } from '../types/hire-intelligence.js';
 import { GreenhouseApplyEngine } from '../engine/greenhouse.js';
 // ── Nova arquitetura de candidatura ──────────────────────────────────────────
 import { ApplicationService } from '../application/ApplicationService.js';
@@ -171,9 +176,76 @@ function extractKeywords(job: Job): string[] {
   return [...new Set(matches.map(k => k.toLowerCase()))].slice(0, 15);
 }
 
+// ── Agent bundle ──────────────────────────────────────────────────────────────
+
+interface HuntAgents {
+  matcher: MatchAgent;             // legacy — fallback only
+  questionnaire: QuestionnaireAgent;
+  twinSelector: TwinSelectorAgent;
+  hireScoreAgent: HireScoreAgent;
+  twinsStore: ProfessionalTwinsStore;
+}
+
+// ── HIE scoring helper ────────────────────────────────────────────────────────
+// Single entry point for scoring via HIE. Handles cache, twin selection, and logging.
+
+async function scoreViaHIE(
+  job: Job,
+  agents: HuntAgents,
+): Promise<HireScore> {
+  // Check HIE cache first (3-day TTL)
+  const cached = agents.twinsStore.getCachedHireScore(job.id);
+  if (cached) {
+    const twinLabel = agents.twinsStore.getById(cached.twinId)?.label ?? cached.twinId;
+    console.log(`  [HIE CACHE] ${twinLabel} | IP: ${cached.interviewProbability}% | HS: ${cached.hireScore}/100 → ${cached.action}`);
+    return cached;
+  }
+
+  // Select best twin for this job (Haiku — fast and cheap)
+  const twins = agents.twinsStore.getAll();
+  const selection = await agents.twinSelector.select(job, twins);
+  const selectedTwin = selection.selectedTwin;
+
+  // Compute Interview Probability + Hire Score (Sonnet)
+  const hireScore = await agents.hireScoreAgent.score(job, selectedTwin);
+  agents.twinsStore.saveHireScore(hireScore);
+
+  const passedGate = hireScore.hireScore >= HIRE_THRESHOLD;
+  const gateStr = passedGate ? '✅ APPLY' : hireScore.action;
+  console.log(`  [HIE] ${selectedTwin.label} | IP: ${hireScore.interviewProbability}% | HS: ${hireScore.hireScore}/100 → ${gateStr}`);
+
+  if (hireScore.keyStrengths.length) {
+    console.log(`        ✓ ${hireScore.keyStrengths.slice(0, 3).join(' · ')}`);
+  }
+  if (hireScore.keyWeaknesses.length) {
+    console.log(`        ✗ ${hireScore.keyWeaknesses[0]}`);
+  }
+  if (hireScore.atsKeywordsMissing.length) {
+    console.log(`        ATS missing: ${hireScore.atsKeywordsMissing.slice(0, 4).join(', ')}`);
+  }
+
+  return hireScore;
+}
+
+// Adapts HireScore to the minimal JobScore fields ApplicationRepository.upsert() reads
+function toJobScore(hs: HireScore): JobScore {
+  return {
+    jobId:       hs.jobId,
+    titleFit:    Math.round(hs.dimensions.technicalFit / 10),
+    stackFit:    Math.round(hs.dimensions.technicalFit / 10),
+    companyFit:  5,
+    dealBreaker: hs.hireScore === 0,
+    total:       hs.hireScore,
+    action:      hs.action,
+    reason:      hs.reasoning,
+  };
+}
+
+// ── processJob (Gupy + Catho) ─────────────────────────────────────────────────
+
 async function processJob(
   job: Job,
-  agents: { matcher: MatchAgent; questionnaire: QuestionnaireAgent },
+  agents: HuntAgents,
   tracker: ApplicationRepository,
   memory: CareerMemory,
   applier: (job: Job) => Promise<boolean>,
@@ -184,38 +256,27 @@ async function processJob(
     return false;
   }
 
-  // Score cache — evita re-chamar o Haiku para vagas já avaliadas nos últimos 5 dias
-  let score = tracker.getCachedScore(job.id);
-  if (score) {
-    console.log(`  [CACHE] Score: ${score.total}/100 -> ${score.action} | ${score.reason}`);
-    if (score.action !== 'APPLY') {
-      console.log(`  ${score.action === 'SKIP' ? 'Pulando (cache).' : 'Revisao manual (cache).'}`);
-      return false;
-    }
-  } else {
-    score = await agents.matcher.score(job);
-    tracker.cacheScore(job.id, score);
-    console.log(`  Score: ${score.total}/100 -> ${score.action} | ${score.reason}`);
-  }
+  const hireScore = await scoreViaHIE(job, agents);
 
   tracker.upsert({
     id: job.id,
     job,
-    score: score as unknown as JobScore,
-    status: (score.action === 'SKIP' ? 'filtered_out' : 'queued') as ApplicationStatus,
+    score: toJobScore(hireScore) as unknown as JobScore,
+    status: (hireScore.action === 'SKIP' ? 'filtered_out' : 'queued') as ApplicationStatus,
   });
 
-  if (score.action !== 'APPLY') {
-    tracker.saveExplainability(job.id, score.reasonApply, undefined, score.reasonFilter);
-    console.log(`  ${score.action === 'SKIP' ? 'Pulando.' : 'Marcado para revisao manual.'}`);
+  if (hireScore.action !== 'APPLY') {
+    if (hireScore.action === 'SKIP') {
+      tracker.updateState(job.id, 'cancelled', { notes: hireScore.reasoning });
+    }
+    console.log(`  ${hireScore.action === 'SKIP' ? 'Pulando.' : 'Marcado para revisao manual.'}`);
     return false;
   }
 
-  tracker.saveExplainability(job.id, score.reasonApply, undefined, score.reasonFilter);
+  tracker.saveExplainability(job.id, hireScore.reasoning, undefined, undefined);
   tracker.updateStatus(job.id, 'applying');
   console.log(`  Aplicando${dryRun ? ' (DRY RUN)' : ''}...`);
 
-  // Informa o agente sobre a vaga atual — necessário para o log e contexto de resposta
   agents.questionnaire.setJob(job.id, job.title, job.company, job.linkedinUrl);
 
   try {
@@ -226,7 +287,6 @@ async function processJob(
         console.log('  Aplicado! (simulado — mantido na fila)');
       } else {
         tracker.updateStatus(job.id, 'applied');
-        // Registra na CareerMemory para analytics
         memory.recordApplication(job.company, extractKeywords(job));
         console.log('  Aplicado!');
       }
@@ -249,7 +309,8 @@ async function main() {
   const dryRun = !!opts.dryRun;
   const maxApply = parseInt(opts.limit, 10);
 
-  console.log(`\nVRAXIA WORK — Hunt Mode [${platform.toUpperCase()}]${dryRun ? ' DRY RUN' : ''}\n`);
+  console.log(`\nVRAXIA WORK — Hunt Mode [${platform.toUpperCase()}]${dryRun ? ' DRY RUN' : ''}`);
+  console.log(`Hire Intelligence Engine active — HIRE_THRESHOLD: ${HIRE_THRESHOLD}/100\n`);
 
   // Sinaliza para a API que um hunt externo está ativo (usado pelo dashboard para polling rápido)
   const PID_FILE = path.resolve(process.cwd(), '.vraxia-work', 'hunt.pid');
@@ -274,8 +335,15 @@ async function main() {
   const logger = new QuestionnaireLogger();
   console.log('[Hunt] Log de perguntas ativo → .vraxia-work/questionnaire-log.*\n');
 
-  const twinStore = new TwinStore();
-  const memory    = await CareerMemory.create();
+  const twinStore  = new TwinStore();
+  const memory     = await CareerMemory.create();
+
+  // HIE agents — Career OS v2
+  const twinsStore     = await ProfessionalTwinsStore.create();
+  const twinSelector   = new TwinSelectorAgent(process.env.ANTHROPIC_API_KEY);
+  const hireScoreAgent = new HireScoreAgent(process.env.ANTHROPIC_API_KEY);
+
+  console.log(`[Hunt] Professional Twins loaded: ${twinsStore.getAll().map(t => t.id).join(', ')}\n`);
 
   const questionnaire = new QuestionnaireAgent(retriever, process.env.ANTHROPIC_API_KEY, logger);
 
@@ -302,20 +370,20 @@ async function main() {
     console.warn('[Hunt] Candidate KB não carregada — usando vault RAG:', String(err).slice(0, 80));
   }
 
-  const agents = {
+  const agents: HuntAgents = {
     matcher:       new MatchAgent(retriever, twinStore, process.env.ANTHROPIC_API_KEY),
     questionnaire,
+    twinSelector,
+    hireScoreAgent,
+    twinsStore,
   };
 
   const tracker = await ApplicationRepository.create();
   const session = new LinkedInSession();
   const page = await session.init({ headless: !!opts.headless });
   // try/finally garante que browser e DB sejam fechados mesmo em caso de erro fatal.
-  // Sem isso, um throw em qualquer ponto da sessão deixa Chromium órfão aberto.
 
   try {
-  // Login LinkedIn só é obrigatório quando a plataforma o exige.
-  // Gupy e Catho standalone usam o mesmo browser mas têm autenticação própria.
   const needsLinkedIn = platform === 'linkedin' || platform === 'all';
   if (needsLinkedIn) {
     const loggedIn = await session.login({
@@ -343,7 +411,6 @@ async function main() {
 
     const remoteOnly = !!opts.remoteOnly;
 
-    // Sequencial — prioridade: SP onsite/híbrido → SP geral → Brasil/Remoto
     const jobsSPOnsite  = remoteOnly ? [] : await searchEngine.scrapeJobList(LINKEDIN_CONFIG_SP_ONSITE).catch(e => { console.warn('[Hunt] Busca SP onsite falhou:', e); return []; });
     const jobsSP        = remoteOnly ? [] : await searchEngine.scrapeJobList(LINKEDIN_CONFIG_SP).catch(e => { console.warn('[Hunt] Busca SP falhou:', e); return []; });
     const jobsBR        = await searchEngine.scrapeJobList(LINKEDIN_CONFIG_BRASIL).catch(e => { console.warn('[Hunt] Busca BR falhou:', e); return []; });
@@ -393,37 +460,35 @@ async function main() {
       // ── LinkedIn Easy Apply via ApplicationService (máquina de estados) ────
       agents.questionnaire.setAtsSource('easy_apply');
 
-      // Idempotência: verificar ANTES de qualquer mutação no DB.
-      // Se upsert() fosse chamado primeiro, ele sobrescreveria o status 'confirmed'
-      // existente com 'queued', e alreadyApplied() nunca detectaria a duplicação.
       if (tracker.alreadyApplied(job.id)) {
         console.log(`  ↩  Já aplicado: ${job.title} @ ${job.company}`);
         continue;
       }
 
-      const score = await agents.matcher.score(job);
+      // ── HIE scoring gate ──────────────────────────────────────────────────
+      // Replaces MatchAgent.score(). Decision: APPLY only if hireScore >= HIRE_THRESHOLD (90).
+      const hireScore = await scoreViaHIE(job, agents);
 
-      // Upsert agora é seguro: o job não era terminal (verificado acima).
+      // Upsert is safe here: job was not terminal (checked above via alreadyApplied).
       tracker.upsert({
         id: job.id,
         job,
-        score: score as unknown as JobScore,
-        status: score.action === 'SKIP' ? 'filtered_out' : 'queued',
+        score: toJobScore(hireScore) as unknown as JobScore,
+        status: hireScore.action === 'SKIP' ? 'filtered_out' : 'queued',
       });
 
-      if (score.action !== 'APPLY') {
-        tracker.updateState(job.id, score.action === 'SKIP' ? 'cancelled' : 'queued', {
-          notes: score.reason,
-          reasonApply: score.reasonApply,
-          reasonFilter: score.reasonFilter,
+      if (hireScore.action !== 'APPLY') {
+        tracker.updateState(job.id, hireScore.action === 'SKIP' ? 'cancelled' : 'queued', {
+          notes: hireScore.reasoning,
+          reasonApply: undefined,
+          reasonFilter: hireScore.action === 'SKIP' ? hireScore.reasoning : undefined,
         });
-        console.log(`  Score: ${score.total}/100 → ${score.action} | ${score.reason}`);
+        console.log(`  ${hireScore.action === 'SKIP' ? 'Pulando.' : 'Marcado para revisao manual.'}`);
         continue;
       }
 
-      tracker.saveExplainability(job.id, score.reasonApply, score.reasonScore, score.reasonFilter);
+      tracker.saveExplainability(job.id, hireScore.reasoning, undefined, undefined);
       tracker.updateState(job.id, 'starting');
-      console.log(`  Score: ${score.total}/100 → APPLY | ${score.reason}`);
       console.log(`  Candidatando${dryRun ? ' (DRY RUN)' : ''}...`);
 
       agents.questionnaire.setJob(job.id, job.title, job.company, job.linkedinUrl);
@@ -522,6 +587,7 @@ async function main() {
     }
   }
 
+  // ── HIE session summary ───────────────────────────────────────────────────
   console.log('\n─────────────────────────────────');
   console.log('RELATORIO FINAL');
   const stats = tracker.getStats();
@@ -529,6 +595,15 @@ async function main() {
     console.log(`  ${status}: ${count}`);
   }
   console.log(`  Aplicacoes nesta sessao: ${totalApplied}/${maxApply}`);
+
+  // HIE stats: how many scored, how many passed the gate
+  const hieApplied  = stats['applied'] ?? 0;
+  const hieFiltered = stats['filtered_out'] ?? 0;
+  const hieTotal    = hieApplied + hieFiltered;
+  if (hieTotal > 0) {
+    const gateRate = Math.round((hieApplied / hieTotal) * 100);
+    console.log(`  HIE gate rate: ${gateRate}% passed (threshold: HS >= ${HIRE_THRESHOLD})`);
+  }
   console.log('─────────────────────────────────\n');
 
   await deployDashboard(); // sempre — dry-run ou não
@@ -537,6 +612,7 @@ async function main() {
     // Garante cleanup mesmo em throw inesperado
     await session.close().catch(() => {});
     tracker.close();
+    twinsStore.close();
     memory.close();
   }
 }
