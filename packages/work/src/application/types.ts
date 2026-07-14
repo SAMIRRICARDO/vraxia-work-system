@@ -1,16 +1,16 @@
 // packages/work/src/application/types.ts
-// Tipos da máquina de estados, evidências e métricas de candidatura
+// State machine types, evidence structures, and application metrics
 
 import type { QuestionnaireQuestion } from '../types/index.js';
 
-// ── Estados da Máquina ───────────────────────────────────────────────────────
-// Ciclo de vida completo: descoberta → apply → validação → carreira
+// ── Application State ────────────────────────────────────────────────────────
+// Complete lifecycle: discovery → apply flow → validation → career tracking
 
 export type ApplicationState =
-  // Pré-apply
-  | 'discovered'         // vaga encontrada pelo search engine
-  | 'queued'             // aguardando apply (já pontuada)
-  | 'already_applied'    // duplicata detectada — não tentar novamente
+  // Pre-apply
+  | 'discovered'         // job found by search engine
+  | 'queued'             // waiting to apply (already scored)
+  | 'already_applied'    // duplicate detected — do not retry
   // Apply flow
   | 'starting'
   | 'opening_job'
@@ -20,15 +20,15 @@ export type ApplicationState =
   | 'reviewing'
   | 'submitting'
   | 'submitted'
-  | 'validating'         // rodando validação pós-submit
-  // Estados terminais do apply
+  | 'validating'         // running post-submit validation
+  // Apply terminal states
   | 'confirmed'
   | 'failed'
   | 'cancelled'
   | 'blocked'
   | 'timeout'
   | 'retrying'
-  // Ciclo de vida pós-apply (atualizados via dashboard / manualmente)
+  // Post-apply career lifecycle (updated via dashboard or manually)
   | 'rejected'
   | 'interview'
   | 'offer'
@@ -45,7 +45,7 @@ export const CAREER_LIFECYCLE_STATES: readonly ApplicationState[] = [
 
 // VALID_TRANSITIONS — the proprietary state transition topology is defined in the private implementation.
 
-// ── Transições ───────────────────────────────────────────────────────────────
+// ── State Transitions ────────────────────────────────────────────────────────
 
 export interface StateTransition {
   from: ApplicationState;
@@ -55,7 +55,7 @@ export interface StateTransition {
   metadata?: Record<string, unknown>;
 }
 
-// ── Trace / Telemetria ────────────────────────────────────────────────────────
+// ── Trace / Telemetry ────────────────────────────────────────────────────────
 
 export interface TraceEvent {
   timestamp: string;
@@ -72,7 +72,7 @@ export interface TraceEvent {
   metadata?: Record<string, unknown>;
 }
 
-// ── Rede ─────────────────────────────────────────────────────────────────────
+// ── Network ──────────────────────────────────────────────────────────────────
 
 export interface NetworkRequest {
   url: string;
@@ -84,7 +84,7 @@ export interface NetworkRequest {
   isApplicationRelated: boolean;
 }
 
-// ── Evidências ───────────────────────────────────────────────────────────────
+// ── Evidence ─────────────────────────────────────────────────────────────────
 
 export interface EvidenceManifest {
   jobId: string;
@@ -102,7 +102,7 @@ export interface EvidenceManifest {
   consoleFile: string;
 }
 
-// ── Validação ─────────────────────────────────────────────────────────────────
+// ── Validation ───────────────────────────────────────────────────────────────
 
 export type ValidationMethod =
   | 'my_jobs_applied'
@@ -119,7 +119,7 @@ export interface ValidationResult {
   evidence?: Record<string, unknown>;
 }
 
-// ── Tentativas (DB) ───────────────────────────────────────────────────────────
+// ── Attempts (DB) ────────────────────────────────────────────────────────────
 
 export interface ApplicationAttempt {
   id: string;
@@ -139,7 +139,7 @@ export interface ApplicationAttempt {
   retryOf?: string;
 }
 
-// ── Métricas ──────────────────────────────────────────────────────────────────
+// ── Metrics ───────────────────────────────────────────────────────────────────
 
 export interface ApplicationMetrics {
   jobId: string;
@@ -154,7 +154,7 @@ export interface ApplicationMetrics {
   blockDetected: boolean;
 }
 
-// ── Opções de Processamento ──────────────────────────────────────────────────
+// ── Processing Options ───────────────────────────────────────────────────────
 
 export interface ProcessOptions {
   dryRun: boolean;
@@ -166,7 +166,7 @@ export interface ProcessOptions {
   traceId?: string;
 }
 
-// ── Resultado Final ───────────────────────────────────────────────────────────
+// ── Application Result ───────────────────────────────────────────────────────
 
 export interface ApplicationResult {
   jobId: string;
@@ -179,7 +179,7 @@ export interface ApplicationResult {
   error?: string;
 }
 
-// ── Resultado Interno do Engine ───────────────────────────────────────────────
+// ── Internal Engine Result ───────────────────────────────────────────────────
 
 export interface EngineResult {
   success: boolean;
@@ -189,36 +189,27 @@ export interface EngineResult {
 
 // ── Truth Engine ──────────────────────────────────────────────────────────────
 
-/**
- * TruthStatus representa o resultado da auditoria de evidências objetivas.
- *
- * VERIFIED  — pelo menos uma prova hard (rede, My Jobs, ATS) confirma o envio.
- * PROBABLE  — evidências parciais indicam envio mas sem prova hard.
- * REJECTED  — nenhuma evidência de envio encontrada após análise.
- * UNKNOWN   — candidatura não avaliada pelo Truth Engine ainda.
- * EXPIRED   — avaliação expirou (candidatura antiga sem evidências acessíveis).
- *
- * NUNCA confundir com ApplicationState (estado do workflow do robô).
- */
+// Distinct from ApplicationState (workflow perspective).
+// TruthStatus is the read-only auditor's verdict based on physical evidence.
 export type TruthStatus =
-  | 'VERIFIED'   // prova objetiva: network 2xx, My Jobs Applied, ATS
-  | 'PROBABLE'   // evidências parciais: texto confirmação, redirect, health alto
-  | 'REJECTED'   // evidências apontam falha, nenhuma prova de envio
-  | 'UNKNOWN'    // ainda não avaliado pelo Truth Engine
-  | 'EXPIRED';   // avaliação não pode mais ser feita (sem evidências disponíveis)
+  | 'VERIFIED'   // hard proof: network 2xx, My Jobs Applied, ATS confirmation
+  | 'PROBABLE'   // partial evidence: confirmation text, redirect, high health score
+  | 'REJECTED'   // evidence points to failure, no submission proof found
+  | 'UNKNOWN'    // not yet evaluated by the Truth Engine
+  | 'EXPIRED';   // evidence no longer accessible for evaluation
 
-/** Alias para TruthStatus — mantido para compatibilidade interna. */
+/** Internal alias — kept for compatibility with existing Truth Engine output. */
 export type ConfidenceLevel = TruthStatus;
 
 export type ProofType =
-  | 'network_submit_200'   // POST para endpoint submit → HTTP 2xx
-  | 'my_jobs_applied'      // vaga encontrada em My Jobs > Applied
-  | 'confirmation_text'    // texto "candidatura enviada" detectado na página
-  | 'url_redirect'         // redirect para URL pós-apply (my-items, /jobs/?)
-  | 'ats_confirmation'     // ATS externo (Greenhouse etc.) confirmou
-  | 'health_check_passed'  // health score ≥ 80
-  | 'screenshot_exists'    // pelo menos 1 screenshot capturado
-  | 'trace_complete';      // trace.json com submit event registrado
+  | 'network_submit_200'   // POST to submit endpoint → HTTP 2xx
+  | 'my_jobs_applied'      // job found under My Jobs > Applied
+  | 'confirmation_text'    // confirmation text detected on page
+  | 'url_redirect'         // redirect to post-apply URL (my-items, /jobs/?)
+  | 'ats_confirmation'     // external ATS (Greenhouse etc.) confirmed receipt
+  | 'health_check_passed'  // browser health check passed post-apply
+  | 'screenshot_exists'    // at least one screenshot captured
+  | 'trace_complete';      // trace.json contains submit event
 
 export interface ApplicationProof {
   type: ProofType;
@@ -264,8 +255,8 @@ export type ErrorCategory =
 export interface ApplicationError {
   category: ErrorCategory;
   message: string;
-  rca: string;              // Root Cause Analysis gerado automaticamente
-  recommendation: string;  // ação recomendada
+  rca: string;              // Root Cause Analysis — auto-generated
+  recommendation: string;
   retryable: boolean;
   state: ApplicationState;
   timestamp: string;

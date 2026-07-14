@@ -1,28 +1,28 @@
-# VRAXIA WORK — Autonomous Job Hunt OS
+# VRAXIA WORK — Autonomous Job Application Engine
 
-> Sistema autônomo de busca e candidatura a vagas com orquestração multi-agente, validação por evidências e analytics em tempo real.
+> Autonomous system for job discovery, scoring, application, and evidence-based
+> verification. Runs on TypeScript · Playwright · Anthropic Claude.
 
-**Stack:** TypeScript · Node.js · Playwright · Anthropic Claude · SQL.js · Express · TF-IDF RAG · Telegram
-
-**Deploy:** [vraxia-platform.vercel.app](https://vraxia-platform.vercel.app) &nbsp;|&nbsp; API local na porta `3001`
-
----
-
-## O que é
-
-VRAXIA WORK é um runtime de automação de carreira que:
-
-1. **Encontra vagas** no LinkedIn, Gupy e Catho usando filtros heurísticos + scoring LLM
-2. **Pontua e filtra** cada vaga com um agente especializado (score 0–25, threshold configurável)
-3. **Candidata automaticamente** via Playwright com anti-detection, upload de CV e preenchimento inteligente de questionários
-4. **Valida objetivamente** se a candidatura foi enviada usando múltiplas fontes de evidência (network, UI, histórico)
-5. **Expõe um dashboard** completo com analytics, funil de workflow, Truth Engine e auditoria por candidatura
-
-O sistema é projetado para rodar de forma autônoma: um agendador dispara o hunt em janela aleatória diária, envia relatório no Telegram e ajusta o comportamento conforme padrões históricos detectados.
+**Stack:** TypeScript · Node.js · Playwright · Anthropic Claude · SQLite · Express · TF-IDF RAG · Telegram
 
 ---
 
-## Arquitetura
+## What It Does
+
+VRAXIA WORK is a career automation runtime that:
+
+1. **Discovers jobs** on LinkedIn, Gupy, and Catho using heuristic filters and LLM scoring
+2. **Scores and filters** each listing with a specialized agent (score 0–25, configurable threshold)
+3. **Applies autonomously** via Playwright with anti-detection, CV upload, and intelligent questionnaire filling
+4. **Verifies independently** whether the application was submitted using multiple evidence sources
+5. **Exposes a dashboard** with application analytics, workflow funnel, Truth Engine status, and per-application audit
+
+The system runs autonomously: a scheduler triggers the hunt within a daily randomized window,
+sends a Telegram report, and adjusts behavior based on detected historical patterns.
+
+---
+
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -36,7 +36,7 @@ O sistema é projetado para rodar de forma autônoma: um agendador dispara o hun
 │         ▼                  ▼                                          │
 │  ┌──────────────────────────────────────────────────────────────┐    │
 │  │                  ApplicationService                          │    │
-│  │  JobFilterAgent → LinkedInApplyEngine → ValidationEngine     │    │
+│  │  JobFilterAgent → Apply Engine → ValidationEngine           │    │
 │  │                         ↓                                    │    │
 │  │               ApplicationTruthEngine                         │    │
 │  └──────────────────────────────────────────────────────────────┘    │
@@ -51,7 +51,7 @@ O sistema é projetado para rodar de forma autônoma: um agendador dispara o hun
 │                    │ truth-record │                                   │
 │                    └──────────────┘                                   │
 │                                                                       │
-│  API Express :3001                                                    │
+│  Express API :3001                                                    │
 │  ┌────────────────────────────────────────────────────────────┐      │
 │  │  /api/work/applications  /truth-stats  /workflow-stats     │      │
 │  │  /api/work/evidence/:id  /analytics    /chat               │      │
@@ -66,47 +66,49 @@ O sistema é projetado para rodar de forma autônoma: um agendador dispara o hun
 
 ---
 
-## Módulos principais
+## Core Modules
 
-### Agentes cognitivos (`src/agents/`)
+### Cognitive Agents (`src/agents/`)
 
-Cada agente é um especialista LLM isolado com contexto mínimo e custo controlado.
+Each agent is an isolated LLM specialist with minimal context and controlled cost.
 
-| Agente | Modelo | Responsabilidade |
+| Agent | Model | Responsibility |
 |---|---|---|
-| `JobFilterAgent` | Sonnet | Score de compatibilidade por vaga (0–25). Threshold 18 = APPLY |
-| `QuestionnaireAgent` | Haiku | Responde questões de candidatura via RAG em 5 camadas |
-| `ResumeAgent` | Sonnet | Adapta currículo para cada empresa/vaga |
-| `ATSAgent` | Sonnet | Analisa compatibilidade ATS: keywords presentes vs. ausentes |
-| `InterviewCoach` | Sonnet | Gera perguntas prováveis + respostas modelo por empresa |
-| `SalaryAdvisor` | Sonnet | Benchmarking de remuneração com script de negociação |
-| `LearningAgent` | Sonnet | Mapeia skill gaps com base nas vagas analisadas |
-| `NetworkingAgent` | Sonnet | Estratégias de networking e scripts de conexão |
-| `StatusTracker` | Haiku | Extrai status de candidatura a partir de screenshots |
+| `JobFilterAgent` | Sonnet | Compatibility score per job (0–25). Threshold 18 = APPLY |
+| `QuestionnaireAgent` | Haiku | Answers application questions via 5-layer RAG pipeline |
+| `ResumeAgent` | Sonnet | Adapts CV to each company and role |
+| `ATSAgent` | Sonnet | ATS compatibility: present vs. absent keywords |
+| `InterviewCoach` | Sonnet | Generates likely questions and model answers per company |
+| `SalaryAdvisor` | Sonnet | Compensation benchmarking with negotiation script |
+| `LearningAgent` | Sonnet | Maps skill gaps from analyzed job listings |
+| `NetworkingAgent` | Sonnet | Networking strategies and connection message scripts |
+| `StatusTracker` | Haiku | Extracts application status from screenshots |
 
-**Hierarquia de custo:** Haiku para extração rápida → Sonnet para raciocínio → TF-IDF para retrieval (custo zero).
+**Cost hierarchy:** Haiku for fast extraction → Sonnet for reasoning → TF-IDF for
+retrieval (zero cost).
 
 ---
 
-### Automação browser (`src/engine/`)
+### Browser Automation (`src/engine/`)
 
-| Módulo | Detalhe |
+| Module | Detail |
 |---|---|
-| `LinkedInSession` | Gerencia cookies, detecção de expiração, renew automático |
-| `JobSearchEngine` | Navega LinkedIn Jobs com filtros, extrai 50–100 vagas por rodada |
-| `EasyApplyEngine` | Clica Easy Apply, preenche questões, faz upload de CV, submete |
-| `GupySearchEngine / ApplyEngine` | Suporte completo à plataforma Gupy |
-| `CathoSearchEngine / ApplyEngine` | Suporte completo à plataforma Catho |
-| `GreenhouseApplyEngine` | Candidatura via ATS Greenhouse externo |
-| `ModalityDetector` | Filtro geográfico CPU-only: REMOTO / HÍBRIDO / PRESENCIAL |
+| `LinkedInSession` | Manages cookies, expiry detection, automatic session renewal |
+| `JobSearchEngine` | Navigates LinkedIn Jobs with filters, extracts 50–100 listings per run |
+| Apply Engine | Clicks Easy Apply, fills questionnaires, uploads CV, submits (private) |
+| `GupySearchEngine / ApplyEngine` | Full Gupy platform support |
+| `CathoSearchEngine / ApplyEngine` | Full Catho platform support |
+| `GreenhouseApplyEngine` | External ATS Greenhouse applications |
+| `ModalityDetector` | CPU-only geographic filter: REMOTE / HYBRID / ON-SITE |
 
-**Anti-detection:** user-agent rotation, human delays aleatórios, Playwright stealth plugin, detecção de ban signal com cooldown obrigatório.
+**Anti-detection:** user-agent rotation, randomized human delays, Playwright stealth
+plugin, ban-signal detection with mandatory cooldown.
 
 ---
 
-### State machine de candidatura (`src/application/`)
+### Application State Machine (`src/application/`)
 
-Cada candidatura percorre um ciclo de vida estritamente tipado:
+Each application follows a strictly typed lifecycle:
 
 ```
 discovered → queued → starting → opening_job → opening_easy_apply
@@ -114,76 +116,71 @@ discovered → queued → starting → opening_job → opening_easy_apply
   → submitted → validating → confirmed | failed | blocked | timeout
 ```
 
-Estados pós-apply (atualizados via dashboard):
+Post-apply states (updated via dashboard):
 ```
 confirmed → interview → offer → hired
          → rejected
 ```
 
-Transições inválidas são rejeitadas em tempo de execução. Retries com backoff exponencial para estados recuperáveis.
+Invalid transitions throw immediately. Retry paths are first-class states:
+`failed → retrying → starting`. See [ADR-003](../../docs/ADR-003-state-machine.md).
 
 ---
 
-### Truth Engine (`src/application/ApplicationTruthEngine.ts`)
+### Truth Engine
 
-O componente mais crítico do sistema. Avalia **objetivamente** se uma candidatura foi enviada, independente do que a UI reportou.
+The most critical component. Independently evaluates whether an application was
+actually submitted, regardless of what the workflow reported.
 
-**Por que existe:** automações podem terminar com sucesso no workflow mas a candidatura não ter sido registrada (sessão expirada, erro silencioso de rede, redirect falso). O Truth Engine coleta provas físicas.
+**Why it exists:** Automation can complete its workflow and reach a success state
+while the actual HTTP submit request failed silently — expired session, network
+error without exception, redirect to a page that looks like confirmation but is
+not. The Truth Engine collects physical evidence.
 
-**7 tipos de prova com pesos calibrados:**
+Evidence sources are hierarchically weighted by reliability. Network-level proof
+(HTTP 2xx to the submit endpoint) is the strongest possible signal — it means the
+server accepted the request. Platform-side confirmation ("My Jobs > Applied") is
+independently verifiable. Visual evidence (screenshots, page text) is weaker but
+contributes when stronger evidence is absent. The specific weights and classification
+thresholds are defined in the private implementation.
 
-| Prova | Peso | Descrição |
-|---|---|---|
-| `network_submit_200` | **80** | POST para endpoint apply retornou HTTP 2xx |
-| `ats_confirmation` | 75 | ATS externo (Greenhouse, Workday) confirmou |
-| `my_jobs_applied` | 70 | Vaga aparece em My Jobs > Applied no LinkedIn |
-| `confirmation_text` | 45 | Texto "candidatura enviada" detectado na página |
-| `url_redirect` | 35 | Redirect para URL pós-apply |
-| `health_check_passed` | 20 | Health score do browser ≥ 80/100 |
-| `screenshot_exists` | 10 | Evidência visual capturada |
-| `trace_complete` | 10 | trace.json contém evento de submit |
+→ See [ADR-002: Truth Engine](../../docs/ADR-002-truth-engine.md) for the full rationale.
 
-**Classificação:**
-```
-score ≥ 80 + hard proof (rede/MyJobs/ATS) → VERIFIED
-score ≥ 40                                 → PROBABLE
-estado de falha explícito no workflow      → REJECTED
-sem evidência suficiente                   → UNKNOWN
-```
+**Clear separation of concerns:**
+- `ApplicationState` — what the robot did (workflow perspective)
+- `TruthStatus` — what the evidence shows (independent auditor perspective)
 
-**Separação clara de mundos:**
-- `ApplicationState` = estado do robô (o que a automação fez)
-- `TruthStatus` = evidência objetiva (o que realmente aconteceu)
-
-Estes dois valores nunca se misturam nas métricas do dashboard.
+These two values are surfaced as independent columns in the dashboard. A `confirmed`
+workflow does not imply `VERIFIED` truth.
 
 ---
 
-### RAG em 5 camadas (`src/rag/`)
+### 5-Layer RAG Pipeline (`src/rag/`)
 
-O `QuestionnaireAgent` usa um pipeline de retrieval sem embeddings (custo zero):
+`QuestionnaireAgent` uses an embedding-free retrieval pipeline (zero cost):
 
 ```
-Pergunta da vaga
+Application question
       ↓
-Camada 1: Regras hard (CPF, endereço, dados fixos)
+Layer 1: Hard rules (CPF, address, fixed personal data)
       ↓
-Camada 2: FAQ estruturado (perguntas recorrentes conhecidas)
+Layer 2: Structured FAQ (known recurring questions with known answers)
       ↓
-Camada 3: Respostas de entrevistas anteriores
+Layer 3: Previous interview answers from career memory
       ↓
-Camada 4: RAG TF-IDF sobre Obsidian Vault (754 chunks de 41 arquivos)
+Layer 4: TF-IDF RAG over personal knowledge base (750+ indexed chunks)
       ↓
-Camada 5: LLM (Haiku) com contexto enriquecido
+Layer 5: LLM (Haiku) with enriched context
 ```
 
-TF-IDF local em TypeScript puro — sem chamada de API para embeddings, sem latência de rede, sem custo adicional.
+TF-IDF implemented in pure TypeScript — no embedding API calls, no network
+latency, no additional cost.
 
 ---
 
-### Digital Twin do candidato (`src/twin/`)
+### Candidate Digital Twin (`src/twin/`)
 
-JSON persistido em SQLite usado por todos os agentes como contexto base:
+JSON persisted in SQLite, used by all agents as base context:
 
 ```typescript
 {
@@ -194,28 +191,31 @@ JSON persistido em SQLite usado por todos os agentes como contexto base:
 }
 ```
 
-Elimina repetição de contexto nos prompts. Cada agente recebe apenas o subconjunto relevante do Twin.
+Eliminates context repetition across prompts. Each agent receives only the
+relevant subset of the Twin for its task.
 
 ---
 
-### Memory persistida (`src/memory/`)
+### Career Memory (`src/memory/`)
 
-`CareerMemory` mantém um SQLite separado com conhecimento acumulado entre execuções:
+`CareerMemory` maintains a separate SQLite database with accumulated knowledge
+between runs:
 
-- `company_insights` — histórico de processos seletivos por empresa
-- `keyword_performance` — quais skills geraram mais matches
-- `question_bank` — banco de perguntas + melhores respostas validadas
-- `resume_performance` — conversão por versão de CV
+- `company_insights` — hiring process history per company
+- `keyword_performance` — which skills generated the most matches
+- `question_bank` — question bank with best validated answers
+- `resume_performance` — conversion rate per CV version
 
-Permite análise offline sem chamar LLM — patterns extraídos de centenas de candidaturas.
+Enables offline analysis without LLM calls — patterns extracted from hundreds
+of application cycles.
 
 ---
 
-### Marketplace de plugins (`src/marketplace/`)
+### Plugin Marketplace (`src/marketplace/`)
 
-Extensões plugáveis via `AgentPlugin` interface:
+Pluggable extensions via `AgentPlugin` interface:
 
-| Plugin | Categoria | Intents |
+| Plugin | Category | Intents |
 |---|---|---|
 | `startup-radar` | Hunt | HUNT |
 | `cover-letter` | Resume | RESUME |
@@ -224,198 +224,208 @@ Extensões plugáveis via `AgentPlugin` interface:
 | `headhunter-script` | Network | NETWORK |
 | `visa-filter` | Hunt | HUNT |
 
-Instalados e ativados pelo dashboard em runtime. `AgentRegistry` despacha para os plugins corretos por intent.
+Installed and activated via dashboard at runtime. `AgentRegistry` dispatches to
+the correct plugins by intent.
 
 ---
 
 ## Dashboard
 
-SPA em HTML5 + Tailwind CSS 3.4 + Chart.js. Design dark glass-morphism. Deploy no Vercel.
+SPA built with HTML5 + Tailwind CSS 3.4 + Chart.js. Dark glass-morphism design. Deployed on Vercel.
 
-### KPIs & Candidaturas
+### Overview and KPIs
 
-![KPIs e visão geral](docs/screenshots/overview.png)
+![Overview and KPIs](docs/screenshots/overview.png)
 
-Painel inicial com contadores da sessão (vagas escaneadas, candidaturas, taxa de aprovação, custo), ações rápidas e tabela completa com filtros por status, plataforma, modalidade e busca em tempo real.
-
----
-
-### Tabela de candidaturas
-
-![Tabela de candidaturas](docs/screenshots/candidaturas.png)
-
-300+ candidaturas com score ATS, badge de plataforma (LinkedIn / Catho / Gupy), modalidade geográfica (Remoto / Híbrido / Presencial), status e 7 ações por linha: auditoria 🔍, explicação ❓, ATS 📊, CV 📄, entrevista 🎓, salário 💰.
+Session counters (listings scanned, applications submitted, approval rate, cost),
+quick actions, and full application table with filters by status, platform, modality,
+and real-time search.
 
 ---
 
-### Truth Engine — Auditoria de Evidências
+### Application Table
+
+![Application table](docs/screenshots/candidaturas.png)
+
+Full application history with ATS score, platform badge (LinkedIn / Catho / Gupy),
+geographic modality (Remote / Hybrid / On-Site), status, and 7 per-row actions:
+audit, explanation, ATS analysis, CV view, interview prep, salary benchmark.
+
+---
+
+### Truth Engine — Evidence Audit
 
 ![Truth Engine](docs/screenshots/truth-engine.png)
 
-Separação completa entre **Workflow Status** (o que o robô fez: 134 queued, 82 submitted, 31 failed, 282 cancelled) e **Truth Status** (evidência objetiva: 1 VERIFIED, 16 REJECTED, 96 PENDING). Funil por estado, classificação de erros com RCA automático, tipos de prova coletados com pesos, e gráfico de distribuição Truth Status.
+Complete separation between **Workflow Status** (what the robot did: queued,
+submitted, failed, cancelled) and **Truth Status** (objective evidence: VERIFIED,
+REJECTED, PENDING). State funnel, error classification with automatic RCA, evidence
+types collected, and Truth Status distribution chart.
 
 ---
 
-### Analytics Executivo
+### Executive Analytics
 
 ![Analytics](docs/screenshots/analytics.png)
 
-Funil completo (529 escaneadas → 82 candidaturas → 126 em revisão), distribuição de score por bucket (Skip / Review / Apply), breakdown por plataforma, top empresas, taxa de conversão 15.5%, mapa de habilidades vs. mercado e top tecnologias demandadas.
+Complete funnel (529 scanned → 82 applications → 126 under review), score
+distribution by bucket (Skip / Review / Apply), platform breakdown, top companies,
+15.5% application rate, skills map vs. market demand, and top requested technologies.
 
 ---
 
-### Log de Questionários
+### Questionnaire Log
 
-![Questionários](docs/screenshots/questionnaire.png)
+![Questionnaire log](docs/screenshots/questionnaire.png)
 
-86 vagas · 2044 perguntas respondidas · 123 via cache FAST · 1921 via LLM. Log completo por empresa com cada pergunta, fonte de resposta (RAG / LLM / cache) e contexto usado.
+86 jobs processed · 2,044 questions answered · 123 resolved via cache · 1,921 via
+LLM. Full per-company log with each question, resolution source (RAG layer / LLM /
+cache), and context used.
 
 ---
 
-### Marketplace de Agentes
+### Agent Marketplace
 
 ![Marketplace](docs/screenshots/marketplace.png)
 
-6 plugins instaláveis em runtime: Startup Radar, Cover Letter BR, Equity Calculator, LinkedIn Optimizer, Headhunter Script, Visa Filter. Cada plugin tem categoria, tags, descrição e botão Executar / Instalar sem reiniciar o servidor.
+6 runtime-installable plugins: Startup Radar, Cover Letter, Equity Calculator,
+LinkedIn Optimizer, Headhunter Script, Visa Filter. Each plugin has category, tags,
+description, and Execute / Install button without server restart.
 
 ---
 
-**Seções adicionais:** Aprendizado (roadmap de skill gaps), Networking (CRM de recrutadores + gerador de mensagens), Hunt Mode (controle do scheduler), Gráficos temporais (candidaturas por dia, acumulado), Career OS Chat (intent parsing com ações rápidas).
+## Autonomous Scheduler
 
----
-
-## Scheduler autônomo
-
-Executa via Windows Task Scheduler (VRAXIA-WORK-Daily):
+Runs via Windows Task Scheduler (VRAXIA-WORK-Daily):
 
 ```
-1. Sorteia janela humana (ex: 14:32–17:45 baseado em histórico)
-2. Aguarda horário aleatório dentro da janela
-3. Dispara hunt.ts --platform linkedin --limit 10
-4. Registra resultado em scheduler-history.jsonl
-5. Envia relatório Telegram (aplicadas · revisão · filtradas · erros · custo)
-6. Ativa cooldown obrigatório se detectar ≥3 rejeições em 7 dias
+1. Selects a randomized human-like window (e.g., 14:32–17:45 based on history)
+2. Waits for a random time within the window
+3. Triggers hunt.ts --platform linkedin --limit 10
+4. Records result in scheduler-history.jsonl
+5. Sends Telegram report (applied · under review · filtered · errors · cost)
+6. Activates mandatory cooldown if ≥3 rejections detected in 7 days
 ```
 
 ---
 
-## Notificações Telegram
+## Telegram Notifications
 
-Relatórios automáticos pós-hunt com:
-- Total de vagas escaneadas / aplicadas / filtradas
-- Truth Rate e Portal Confirmation Rate
-- Custo estimado da rodada (USD)
-- Alertas de ban signal ou erros críticos
+Automatic post-hunt reports with:
+- Total listings scanned / applied / filtered
+- Truth Rate and Portal Confirmation Rate
+- Estimated round cost (USD)
+- Ban-signal alerts or critical error notifications
 
 ---
 
-## Stack completa
+## Full Stack
 
-| Camada | Tecnologia |
+| Layer | Technology |
 |---|---|
-| Runtime | TypeScript 5.4 + Node.js 18+ (ESM) |
+| Runtime | TypeScript 5.4 · Node.js 18+ (ESM) |
 | Browser | Playwright 1.44 + stealth plugin |
 | LLM | Anthropic Claude (Sonnet 4, Haiku 4.5) |
-| Storage | SQL.js (SQLite no Node) |
+| Storage | SQL.js (SQLite in Node) |
 | API | Express 5 |
-| Frontend | HTML5 + Tailwind CSS 3.4 + Chart.js |
-| RAG | TF-IDF local (sem embeddings) |
-| CLI | Commander 12 + tsx |
-| Notify | Telegram Bot API (fetch nativo) |
-| Deploy | Vercel (dashboard) + localhost (API) |
+| Frontend | HTML5 · Tailwind CSS 3.4 · Chart.js |
+| RAG | TF-IDF local (no embeddings) |
+| CLI | Commander 12 · tsx |
+| Notifications | Telegram Bot API (native fetch) |
+| Deploy | Vercel (dashboard) · localhost (API) |
 | Testing | Vitest 2 |
 
 ---
 
-## Comandos
+## Commands
 
 ```bash
-# Candidatura
-npm run hunt                    # busca + candidatura (LinkedIn)
+# Application
+npm run hunt                    # search + apply (LinkedIn)
 npm run hunt -- --platform gupy --limit 5 --dry-run
 
-# Sessão
-npm run session:renew           # renova cookies LinkedIn
-npm run catho:login             # setup Catho
+# Session
+npm run session:renew           # renew LinkedIn cookies
+npm run catho:login             # Catho session setup
 
 # Dashboard
-npm run serve                   # API local :3001
-npm run tunnel                  # expõe via cloudflared
-npm run start:full              # serve + tunnel paralelos
+npm run serve                   # local API :3001
+npm run tunnel                  # expose via cloudflared
+npm run start:full              # serve + tunnel in parallel
 
-# QA / manutenção
-npm run sense:report            # relatório 7 dias
-npm run sense:report:full       # relatório 30 dias + sugestões KB
-npm run errors:reset            # limpa erros (--dry-run primeiro)
-npm run typecheck               # type check sem emit
+# QA / maintenance
+npm run sense:report            # 7-day report
+npm run sense:report:full       # 30-day report + KB suggestions
+npm run errors:reset            # clear errors (use --dry-run first)
+npm run typecheck               # type check without emit
 npm run test                    # vitest
 ```
 
 ---
 
-## Evidências por candidatura
+## Evidence per Application
 
-Cada aplicação gera um diretório `.vraxia-work/logs/application_{jobId}/`:
+Each application generates a directory `.vraxia-work/logs/application_{jobId}/`:
 
 ```
 application_abc123/
-├── manifest.json         # metadata: empresa, plataforma, duração, estado final
-├── network.json          # todas requisições capturadas (URL, método, status, body)
-├── trace.json            # eventos do robô (step, action, durationMs, result)
-├── timeline.json         # timeline de transições de estado
-├── health-report.json    # score de saúde do browser pós-candidatura
-├── truth-record.json     # TruthRecord: confidence, score, provas, summary
-└── screenshot_*.png      # evidências visuais (upload, submit, confirmação)
+├── manifest.json         metadata: company, platform, duration, final state
+├── network.json          all captured requests (URL, method, status, body)
+├── trace.json            robot events (step, action, durationMs, result)
+├── timeline.json         state transition timeline
+├── health-report.json    browser health score post-application
+├── truth-record.json     TruthRecord: verdict, score, evidence, summary
+└── screenshot_*.png      visual evidence (upload, submit, confirmation)
 ```
 
 ---
 
-## Patterns de engenharia
+## Engineering Patterns
 
-- **State machine tipada** — transições inválidas rejeitadas em runtime, não apenas em lint
-- **Separação Truth/Workflow** — métricas de negócio não dependem do sucesso da automação
-- **RAG hierárquico** — retrieval determinístico antes de chamar LLM (latência e custo menores)
-- **Digital Twin** — contexto do candidato centralizado, não duplicado em cada prompt
-- **Evidence-driven validation** — auditoria física por múltiplas fontes independentes
-- **Plugin registry** — extensibilidade sem modificar o core
-- **Cost-first model selection** — Haiku onde velocidade importa, Sonnet onde qualidade importa
-- **Offline-first** — SQLite local, RAG local, scheduler local — funciona sem infra cloud
+- **Typed state machine** — invalid transitions rejected at runtime, not just in lint
+- **Truth/Workflow separation** — business metrics do not depend on automation success claims
+- **Hierarchical RAG** — deterministic retrieval before LLM call (lower latency and cost)
+- **Digital Twin** — candidate context centralized, not duplicated per prompt
+- **Evidence-driven validation** — physical audit across multiple independent sources
+- **Plugin registry** — extensibility without modifying the core
+- **Cost-first model selection** — Haiku where speed matters, Sonnet where quality matters
+- **Offline-first** — SQLite local, RAG local, scheduler local — no cloud dependency
 
 ---
 
 ## Performance
 
-| Operação | Tempo médio |
+| Operation | Average time |
 |---|---|
-| Scan de 50 vagas (search) | ~25s |
-| Score de 1 vaga (LLM) | ~3s (com prompt cache) |
-| Candidatura completa (apply + validação) | ~45–90s |
+| Scan 50 listings (search) | ~25s |
+| Score 1 listing (LLM) | ~3s (with prompt cache) |
+| Full application (apply + verification) | ~45–90s |
 | Truth evaluation (local) | ~200ms |
-| **Total por rodada de 10 candidaturas** | **~20 min** |
+| **Total per 10-application round** | **~20 min** |
 
-**Custo estimado:** ~$0.003/candidatura (Sonnet com cache). 5 candidaturas/dia = ~$5/ano.
+**Estimated cost:** ~$0.003/application (Sonnet with cache). 5 applications/day ≈ $5/year.
 
 ---
 
-## Estrutura do repositório
+## Repository Structure
 
 ```
 packages/work/
 ├── src/
-│   ├── agents/               # 9 agentes LLM especializados
-│   ├── api/server.ts         # Express + 25+ endpoints REST
-│   ├── application/          # State machine, Truth Engine, Repository
-│   ├── cli/                  # 8 scripts standalone
-│   ├── engine/               # Browser automation (LinkedIn, Gupy, Catho)
-│   ├── marketplace/          # Registry + 6 plugins
-│   ├── memory/               # CareerMemory (SQLite)
-│   ├── notifications/        # Telegram
-│   ├── rag/                  # Vault loader + TF-IDF retriever
-│   ├── scheduler/            # Daily runner + cooldown
-│   ├── twin/                 # CandidateTwin store
-│   └── types/                # Tipos compartilhados
+│   ├── agents/               9 specialized LLM agents
+│   ├── api/server.ts         Express + 25+ REST endpoints
+│   ├── application/          State machine · Truth Engine · Repository
+│   ├── cli/                  8 standalone entrypoint scripts
+│   ├── engine/               Browser automation (LinkedIn, Gupy, Catho)
+│   ├── marketplace/          Registry + 6 plugins
+│   ├── memory/               CareerMemory (SQLite)
+│   ├── notifications/        Telegram
+│   ├── rag/                  Vault loader + TF-IDF retriever
+│   ├── scheduler/            Daily runner + cooldown logic
+│   ├── twin/                 CandidateTwin store
+│   └── types/                Shared type definitions
 ├── dashboard/
-│   ├── index.html            # SPA completa (~3200 linhas)
+│   ├── index.html            Full SPA (~3,200 lines)
 │   └── vercel.json
 ├── package.json
 └── tsconfig.json
@@ -423,12 +433,25 @@ packages/work/
 
 ---
 
-## Por que este projeto
+## Why This System
 
-Este sistema resolve um problema real de forma engenheirada: candidatar a vagas no Brasil exige volume (decenas por semana para taxas razoáveis de resposta) mas cada candidatura precisa de qualidade (CV adaptado, questionário respondido com contexto, validação de envio).
+Applying to jobs in Brazil at meaningful volume (dozens per week for reasonable
+response rates) while maintaining quality (adapted CV, contextually answered
+questionnaires, verified submissions) is a systems engineering problem: it
+requires browser automation, LLM orchestration, local RAG, knowledge persistence,
+and evidence-based verification working together in a runtime that operates
+autonomously at near-zero cost with full auditability.
 
-A solução integra automação de browser, orquestração LLM, RAG local e persistência de conhecimento em um runtime que opera de forma autônoma com custo próximo a zero, auditabilidade completa e analytics em tempo real.
+This is a personal-scale system. It is not a SaaS product and has no external users.
 
 ---
 
-*Desenvolvido por [Samir Ricardo](https://linkedin.com/in/samir-ricardo-almeida-b23b3825b) — AI Architect & Full Stack Developer*
+## License
+
+Copyright © 2026 Samir Ricardo de Oliveira Almeida. All Rights Reserved.
+
+See [LICENSE](../../LICENSE) for full terms.
+
+---
+
+*Built by [Samir Ricardo](https://linkedin.com/in/samir-ricardo-almeida-b23b3825b)*

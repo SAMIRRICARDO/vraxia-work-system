@@ -59,6 +59,19 @@ export class ApplicationStateMachine {
     }, {});
   }
 
-  // Transition topology is defined in the private implementation.
-  private assertValidTransition(_from: ApplicationState, _to: ApplicationState): void { /* private */ }
+  // States with no outgoing transitions in any context (ADR-003 → [*] arrowheads).
+  // TERMINAL_STATES is broader — it marks apply-flow completion, but 'confirmed'
+  // and 'failed' still have career-lifecycle and retry paths respectively.
+  private static readonly NO_OUTBOUND = new Set<ApplicationState>([
+    'cancelled', 'blocked', 'timeout', 'already_applied', 'rejected', 'hired',
+  ]);
+
+  // Full transition topology is enforced in the private implementation.
+  // This stub enforces the public contract: states with no outgoing transitions throw.
+  private assertValidTransition(from: ApplicationState, to: ApplicationState): void {
+    if (ApplicationStateMachine.NO_OUTBOUND.has(from)) {
+      throw new Error(`Cannot transition from terminal state '${from}' to '${to}'`);
+    }
+    // Full VALID_TRANSITIONS topology enforced in the private build.
+  }
 }
