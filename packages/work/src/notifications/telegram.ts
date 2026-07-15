@@ -271,7 +271,7 @@ export async function sendServerStartup(): Promise<void> {
 📡 Porta: <b>3001</b>   ${now}
 🗄 DB: ${dbOk ? '✅ encontrado' : '⚠️ não encontrado — execute o hunt'}${tunnelBlock}
 
-🌐 Dashboard: <a href="https://vraxia-platform.vercel.app">vraxia-platform.vercel.app</a>`;
+🌐 Dashboard: <a href="https://ai-cognitive-runtime.vercel.app">ai-cognitive-runtime.vercel.app</a>`;
 
   await sendMessage(msg);
   markNotified(STARTUP_NOTIFY_TS);
@@ -279,25 +279,34 @@ export async function sendServerStartup(): Promise<void> {
 
 // ─── Notificação de túnel (usada por start-tunnel.ts) ────────────────────────
 
-const TUNNEL_NOTIFY_TS     = path.join(WORK_DIR, 'tunnel-last-notify.txt');
-const TUNNEL_COOLDOWN_MS   = 10 * 60 * 1000; // 10 min
+const TUNNEL_NOTIFY_TS   = path.join(WORK_DIR, 'tunnel-last-notify.txt');
+const TUNNEL_COOLDOWN_MS = 2 * 60 * 1000; // 2 min entre notificações do mesmo túnel
 
-export async function sendTunnelNotification(tunnelUrl: string): Promise<void> {
+export async function sendTunnelNotification(
+  tunnelUrl: string,
+  provider: 'cloudflare' | 'ngrok' = 'cloudflare',
+): Promise<void> {
   if (!canNotify(TUNNEL_NOTIFY_TS, TUNNEL_COOLDOWN_MS)) {
     console.log('[Tunnel] Telegram cooldown ativo — notificação suprimida.');
     return;
   }
 
-  const msg = `🔗 <b>VRAXIA — Novo túnel ativo</b>
+  const providerIcon  = provider === 'ngrok' ? '🟠' : '🟡';
+  const providerLabel = provider === 'ngrok' ? 'ngrok' : 'Cloudflare';
+  const now           = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+
+  const msg = `🔗 <b>VRAXIA — Túnel ativo</b>  ${providerIcon} <b>${providerLabel}</b>
 
 <code>${tunnelUrl}</code>
 
-⚙️ Cole no dashboard:
-<a href="https://vraxia-platform.vercel.app">vraxia-platform.vercel.app</a>`;
+⚙️ Configure no dashboard (settings ⚙):
+<a href="https://ai-cognitive-runtime.vercel.app">ai-cognitive-runtime.vercel.app</a>
+
+📅 ${now}`;
 
   await sendMessage(msg);
   markNotified(TUNNEL_NOTIFY_TS);
-  console.log('[Tunnel] Telegram enviado com URL do túnel.');
+  console.log(`[Tunnel] Telegram enviado — ${providerLabel}: ${tunnelUrl}`);
 }
 
 // ─── Teste rápido: npx tsx src/notifications/telegram.ts ─────────────────────
