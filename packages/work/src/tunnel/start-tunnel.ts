@@ -126,7 +126,18 @@ async function startCloudflared(restartCount = 0): Promise<void> {
 
 // ── ngrok ─────────────────────────────────────────────────────────────────────
 
+function killAllNgrok(): void {
+  try {
+    if (process.platform === 'win32') {
+      execSync('taskkill /F /IM ngrok.exe 2>nul', { stdio: 'ignore' });
+    } else {
+      execSync('pkill -f ngrok 2>/dev/null || true', { stdio: 'ignore' });
+    }
+  } catch { /* processo pode já não existir */ }
+}
+
 async function pollNgrokUrl(): Promise<string | null> {
+  // Tenta porta padrão 4040 apenas — não lê instâncias em portas alternativas
   try {
     const r = await fetch('http://localhost:4040/api/tunnels', { signal: AbortSignal.timeout(2000) });
     const d = await r.json() as { tunnels?: Array<{ proto: string; public_url: string }> };
@@ -135,6 +146,10 @@ async function pollNgrokUrl(): Promise<string | null> {
 }
 
 async function startNgrok(restartCount = 0): Promise<void> {
+  // Mata qualquer ngrok existente antes de iniciar para evitar ERR_NGROK_108
+  killAllNgrok();
+  await new Promise(r => setTimeout(r, 1_500)); // aguarda processos encerrarem
+
   console.log(`[Tunnel] Iniciando ngrok (tentativa ${restartCount + 1})...`);
   fs.mkdirSync(WORK_STATE_DIR, { recursive: true });
 
@@ -142,37 +157,57 @@ async function startNgrok(restartCount = 0): Promise<void> {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-  let urlFound  = false;
+  let urlFound    = false;
+  let sessionErr  = false;
   let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+  const stopPolling = (): void => {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  };
 
   const startPolling = (): void => {
     pollTimer = setInterval(async () => {
-      if (urlFound) return;
+      if (urlFound || sessionErr) return;
       const url = await pollNgrokUrl();
       if (url) {
         urlFound = true;
-        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        stopPolling();
         onTunnelUrl(url, 'ngrok');
       }
     }, 1_500);
   };
 
+  const handleOutput = (data: Buffer): void => {
+    const text = data.toString();
+    // ERR_NGROK_108 = limite de sessões — não adianta reiniciar sem limpar
+    if (text.includes('ERR_NGROK_108') || text.includes('limited to') || text.includes('authentication failed')) {
+      sessionErr = true;
+      stopPolling();
+    }
+    process.stdout.write('[ngrok] ' + text);
+  };
+
+  proc.stdout?.on('data', handleOutput);
+  proc.stderr?.on('data', handleOutput);
+
   // Começa a poll após 2s para dar tempo do ngrok subir
   setTimeout(startPolling, 2_000);
 
-  proc.stdout?.on('data', (data: Buffer) => {
-    process.stdout.write('[ngrok] ' + data.toString());
-  });
-  proc.stderr?.on('data', (data: Buffer) => {
-    process.stdout.write('[ngrok] ' + data.toString());
-  });
-
   proc.on('exit', (code) => {
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    stopPolling();
     if (shutdownRequested) { process.exit(0); return; }
 
+    // Erro de sessão: matar tudo e esperar 30s antes de tentar novamente
+    if (sessionErr) {
+      console.log('\n[Tunnel] ngrok: limite de sessões (ERR_NGROK_108) — aguardando 30s para sessões expirarem...');
+      killAllNgrok();
+      try { fs.writeFileSync(TUNNEL_URL_FILE, ''); } catch {}
+      setTimeout(() => startNgrok(restartCount).catch(() => process.exit(1)), 30_000);
+      return;
+    }
+
     const attempt = restartCount + 1;
-    const maxRetries = 10; // ngrok é mais estável — permite mais tentativas
+    const maxRetries = 5;
     if (attempt > maxRetries) {
       console.error(`[Tunnel] ngrok: ${maxRetries} tentativas falharam — encerrando.`);
       process.exit(1);
@@ -182,11 +217,7 @@ async function startNgrok(restartCount = 0): Promise<void> {
     const delay = Math.min(5_000 * Math.pow(2, Math.min(attempt - 1, 4)), 60_000);
     console.log(`\n[Tunnel] ngrok encerrou (code ${code ?? 'null'}) — tentativa ${attempt}/${maxRetries}, aguardando ${delay / 1000}s...`);
     try { fs.writeFileSync(TUNNEL_URL_FILE, ''); } catch {}
-    urlFound = false;
-    setTimeout(() => startNgrok(attempt).catch(err => {
-      console.error('[Tunnel] Erro ao reiniciar ngrok:', err);
-      process.exit(1);
-    }), delay);
+    setTimeout(() => startNgrok(attempt).catch(() => process.exit(1)), delay);
   });
 }
 
