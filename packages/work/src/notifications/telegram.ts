@@ -271,7 +271,7 @@ export async function sendServerStartup(): Promise<void> {
 📡 Porta: <b>3001</b>   ${now}
 🗄 DB: ${dbOk ? '✅ encontrado' : '⚠️ não encontrado — execute o hunt'}${tunnelBlock}
 
-🌐 Dashboard: <a href="https://ai-cognitive-runtime.vercel.app">ai-cognitive-runtime.vercel.app</a>`;
+🌐 Dashboard: <a href="https://vraxia-platform.vercel.app">vraxia-platform.vercel.app</a>`;
 
   await sendMessage(msg);
   markNotified(STARTUP_NOTIFY_TS);
@@ -300,7 +300,7 @@ export async function sendTunnelNotification(
 <code>${tunnelUrl}</code>
 
 ⚙️ Configure no dashboard (settings ⚙):
-<a href="https://ai-cognitive-runtime.vercel.app">ai-cognitive-runtime.vercel.app</a>
+<a href="https://vraxia-platform.vercel.app">vraxia-platform.vercel.app</a>
 
 📅 ${now}`;
 
