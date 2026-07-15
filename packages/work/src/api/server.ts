@@ -3,9 +3,14 @@
 // Usage: npx tsx src/api/server.ts
 // Dashboard: http://localhost:3001/work
 
+import dotenv from 'dotenv';
+import path from 'path';
+// Carrega .env antes de qualquer import que dependa de process.env
+dotenv.config({ path: path.resolve(process.cwd(), '../../.env'), override: false });
+dotenv.config({ path: path.resolve(process.cwd(), '.env'),       override: false });
+
 import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
-import path from 'path';
 import fs from 'fs';
 import { spawn, ChildProcess } from 'child_process';
 import initSqlJs from 'sql.js';
@@ -1592,5 +1597,5 @@ app.listen(PORT, () => {
     console.warn(`  [WARN] Banco não encontrado: ${DB_PATH} (execute o hunt primeiro)`);
   }
   // Notifica Telegram com status do servidor + link do túnel (cooldown 5 min anti-spam)
-  sendServerStartup().catch(() => {}); // não-crítico — falha silenciosa
+  sendServerStartup().catch(err => console.warn('[Telegram] Startup notification failed:', String(err)));
 });
