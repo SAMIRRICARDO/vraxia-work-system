@@ -1,0 +1,29 @@
+{
+  "name": "@vraxia/mcp",
+  "version": "0.1.0",
+  "description": "VRAXIA MCP Server — expõe os agentes VRAXIA como tools MCP (Claude Desktop, Claude Code)",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/server.ts",
+    "start:sse": "tsx src/transport/sse.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.105.0",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "dotenv": "^16.4.0",
+    "express": "^5.2.1",
+    "gray-matter": "^4.0.3",
+    "sql.js": "^1.12.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.0.0",
+    "@types/sql.js": "^1.4.9",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
