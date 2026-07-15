@@ -21,6 +21,7 @@ import { LearningAgent } from '../agents/LearningAgent.js';
 import { NetworkingAgent } from '../agents/NetworkingAgent.js';
 import { VaultRetriever } from '../rag/retriever.js';
 import { AgentRegistry } from '../marketplace/registry.js';
+import { sendServerStartup } from '../notifications/telegram.js';
 
 const modalityDetector = new ModalityDetector();
 const retriever = new VaultRetriever();
@@ -1341,6 +1342,13 @@ app.get('/api/work/opportunity-scores', async (req: Request, res: Response) => {
     const limit  = Math.min(parseInt(String(req.query['limit'] ?? '100'), 10), 500);
     const action = String(req.query['action'] ?? 'all'); // APPLY | REVIEW | SKIP | all
 
+    // Gracefully handle missing hire_scores table (created only after first hunt with HIE)
+    const tableExists = await withDb(db => {
+      try { dbQuery(db, `SELECT 1 FROM hire_scores LIMIT 1`); return true; }
+      catch { return false; }
+    });
+    if (!tableExists) { res.json([]); return; }
+
     const rows = await withDb(db => {
       let sql = `
         SELECT
@@ -1389,7 +1397,7 @@ app.get('/api/work/opportunity-scores', async (req: Request, res: Response) => {
 
     res.json(result);
   } catch (e) {
-    res.status(500).json({ error: String(e) });
+    res.json([]); // never 500 — return empty array so dashboard shows fallback state
   }
 });
 
@@ -1583,4 +1591,6 @@ app.listen(PORT, () => {
   if (!fs.existsSync(DB_PATH)) {
     console.warn(`  [WARN] Banco não encontrado: ${DB_PATH} (execute o hunt primeiro)`);
   }
+  // Notifica Telegram com status do servidor + link do túnel (cooldown 5 min anti-spam)
+  sendServerStartup().catch(() => {}); // não-crítico — falha silenciosa
 });

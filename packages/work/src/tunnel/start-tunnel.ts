@@ -4,7 +4,7 @@
 import { execSync, spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import https from 'https';
+import { sendTunnelNotification } from '../notifications/telegram.js';
 
 // Carrega .env para obter TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID
 function loadEnv(): void {
@@ -21,45 +21,9 @@ function loadEnv(): void {
   }
 }
 
-function sendTelegram(tunnelUrl: string): void {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chat  = process.env.TELEGRAM_CHAT_ID;
-  if (!token || !chat) return;
-
-  const text = `🔗 VRAXIA — Novo túnel ativo\n\n` +
-    `URL: ${tunnelUrl}\n\n` +
-    `Cole no dashboard ⚙:\nhttps://vraxia-platform.vercel.app`;
-
-  const body = JSON.stringify({ chat_id: chat, text });
-  const req = https.request({
-    hostname: 'api.telegram.org',
-    path: `/bot${token}/sendMessage`,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
-  });
-  req.on('error', () => {}); // não crítico
-  req.write(body);
-  req.end();
-}
-
 const WORK_STATE_DIR    = path.resolve(process.cwd(), '.vraxia-work');
 const TUNNEL_URL_FILE   = path.join(WORK_STATE_DIR, 'tunnel-url.txt');
-const TUNNEL_NOTIFY_TS  = path.join(WORK_STATE_DIR, 'tunnel-last-notify.txt');
 const LOCAL_CLOUDFLARED = path.join(WORK_STATE_DIR, 'cloudflared.exe');
-
-const NOTIFY_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutos entre notificações
-
-function canNotify(): boolean {
-  try {
-    if (!fs.existsSync(TUNNEL_NOTIFY_TS)) return true;
-    const last = parseInt(fs.readFileSync(TUNNEL_NOTIFY_TS, 'utf-8').trim(), 10);
-    return Date.now() - last > NOTIFY_COOLDOWN_MS;
-  } catch { return true; }
-}
-
-function markNotified(): void {
-  try { fs.writeFileSync(TUNNEL_NOTIFY_TS, String(Date.now())); } catch {}
-}
 
 function resolveCloudflared(): string {
   // 1. PATH
@@ -110,8 +74,7 @@ async function startTunnel(): Promise<void> {
         console.log(`[Tunnel] Configure no dashboard: ${url}`);
         console.log(`[Tunnel] Dashboard Vercel: https://vraxia-platform.vercel.app\n`);
         console.log(`[Tunnel] No dashboard, clique em ⚙ e configure a API URL como:\n  ${url}\n`);
-        if (canNotify()) { sendTelegram(url); markNotified(); }
-        else { console.log('[Tunnel] Telegram cooldown ativo — notificação suprimida.'); }
+        sendTunnelNotification(url).catch(() => {}); // cooldown gerenciado internamente
       }
       if (line.trim()) process.stdout.write('[Tunnel] ' + line + '\n');
     }
