@@ -641,12 +641,20 @@ app.get('/api/work/home/stats', async (_req: Request, res: Response) => {
     if (!fs.existsSync(DB_PATH)) { res.json({ highMatch: 0, streak: 0, totalApplied: 0 }); return; }
     const db = new sql.Database(fs.readFileSync(DB_PATH));
 
-    const exec = (q: string) => {
-      const r = db.exec(q);
+    const exec = (q: string, params: (string | number)[] = []) => {
+      const r = db.exec(q, params);
       return r.length ? r[0].values : [];
     };
 
-    const highMatch = (exec(`SELECT COUNT(*) FROM job_applications WHERE score_total >= 90 AND status IN ('queued','review')`)[0]?.[0] ?? 0) as number;
+    // Prioriza hire_scores.interview_probability (HIE — novo) sobre score_total (MatchAgent — legado)
+    let highMatch = 0;
+    try {
+      // Conta vagas com Interview Probability >= 90% na tabela hire_scores (dados reais)
+      highMatch = (exec(`SELECT COUNT(*) FROM hire_scores WHERE interview_probability >= 90`)[0]?.[0] ?? 0) as number;
+    } catch {
+      // Fallback para legado se hire_scores não existir ainda
+      highMatch = (exec(`SELECT COUNT(*) FROM job_applications WHERE score_total >= 90`)[0]?.[0] ?? 0) as number;
+    }
     const totalApplied = (exec(`SELECT COUNT(*) FROM job_applications WHERE status = 'applied'`)[0]?.[0] ?? 0) as number;
 
     // Streak: dias consecutivos com pelo menos 1 candidatura
@@ -1582,6 +1590,317 @@ app.get('/api/work/prediction-stats', async (_req: Request, res: Response) => {
     });
   } catch (e) {
     res.json(emptyResponse); // never 500
+  }
+});
+
+// ── POST /api/work/applications/:jobId/dia ────────────────────────────────────
+// D.I.A. — Registra estado de outcome da candidatura + dispara aprendizado.
+// Cada mudança de estado atualiza Digital Twin, HireScore e Learning Patterns.
+app.post('/api/work/applications/:jobId/dia', async (req: Request, res: Response) => {
+  try {
+    const jobId = String(req.params['jobId']);
+    const { outcomeState, notes, twinId, daysSinceApply } = req.body as {
+      outcomeState: string;
+      notes?: string;
+      twinId?: string;
+      daysSinceApply?: number;
+    };
+
+    const VALID_STATES = [
+      'applied', 'viewed', 'recruiter_contact', 'questionnaire', 'english_test',
+      'rh_interview', 'technical_interview', 'manager_interview',
+      'offer', 'rejected', 'ghost', 'hired',
+    ];
+    if (!VALID_STATES.includes(outcomeState)) {
+      res.status(400).json({ error: `Estado inválido. Válidos: ${VALID_STATES.join(', ')}` });
+      return;
+    }
+
+    // Resolve twinId from hire_scores if not provided
+    let resolvedTwinId = twinId ?? 'twin_ai_engineer';
+    const hsRow = await withDb(db => {
+      const r = db.exec(`SELECT twin_id, company, job_title, platform FROM hire_scores WHERE job_id = ?`, [jobId]);
+      if (!r.length || !r[0].values.length) return null;
+      const cols = r[0].columns;
+      const obj: Record<string, unknown> = {};
+      cols.forEach((c, i) => obj[c] = r[0].values[0][i]);
+      return obj;
+    });
+    if (hsRow && !twinId) resolvedTwinId = (hsRow['twin_id'] as string) ?? resolvedTwinId;
+
+    // Persiste o estado na timeline D.I.A.
+    const { randomUUID } = await import('crypto');
+    const { ProfessionalTwinsStore } = await import('../twin/professional-twins.js');
+    const store = await ProfessionalTwinsStore.create();
+    store.saveOutcomeTimeline({
+      id: randomUUID(),
+      jobId,
+      twinId: resolvedTwinId,
+      outcomeState,
+      notes,
+      daysSinceApply,
+    });
+
+    // Mapeia estado para InterviewOutcomeType e dispara LearningEngine
+    const LEARNING_TRIGGER_STATES = ['rh_interview','technical_interview','manager_interview','offer','hired','rejected','ghost'];
+    if (LEARNING_TRIGGER_STATES.includes(outcomeState) && hsRow) {
+      const { LearningEngine } = await import('../engine/learning-engine.js');
+      const engine = new LearningEngine(store);
+
+      const outcomeTypeMap: Record<string, string> = {
+        rh_interview:        'interview',
+        technical_interview: 'interview',
+        manager_interview:   'interview',
+        offer:               'offer',
+        hired:               'hired',
+        rejected:            'rejection',
+        ghost:               'ghosted',
+      };
+      const outcomeType = outcomeTypeMap[outcomeState] ?? 'no_response';
+
+      // Busca hire score para snapshot
+      const hs = await withDb(db => {
+        const r = db.exec(`SELECT interview_probability, hire_score, technical_fit, ats_probability FROM hire_scores WHERE job_id = ?`, [jobId]);
+        if (!r.length || !r[0].values.length) return null;
+        const cols = r[0].columns;
+        const obj: Record<string, unknown> = {};
+        cols.forEach((c, i) => obj[c] = r[0].values[0][i]);
+        return obj;
+      });
+
+      engine.recordOutcome({
+        jobId,
+        twinId: resolvedTwinId as Parameters<typeof engine.recordOutcome>[0]['twinId'],
+        company:     (hsRow['company'] as string) ?? '',
+        jobTitle:    (hsRow['job_title'] as string) ?? '',
+        platform:    (hsRow['platform'] as string) ?? 'linkedin',
+        stackTags:   [],
+        outcome:     outcomeType as Parameters<typeof engine.recordOutcome>[0]['outcome'],
+        hireScoreAtApply:            (hs?.['hire_score'] as number) ?? 0,
+        interviewProbabilityAtApply: (hs?.['interview_probability'] as number) ?? 0,
+        technicalFitAtApply:         (hs?.['technical_fit'] as number) ?? 0,
+        atsProbabilityAtApply:       (hs?.['ats_probability'] as number) ?? 0,
+        responseTimeDays:            daysSinceApply,
+      });
+    }
+
+    // Atualiza application_state na tabela principal
+    const stateMirror: Record<string, string> = {
+      rh_interview: 'interview', technical_interview: 'interview', manager_interview: 'interview',
+      offer: 'offer', hired: 'hired', rejected: 'rejected', ghost: 'failed',
+    };
+    const legacyMirror: Record<string, string> = {
+      interview: 'interview', offer: 'applied', hired: 'applied', rejected: 'filtered_out',
+    };
+    if (stateMirror[outcomeState]) {
+      await withDb(db => {
+        const appState = stateMirror[outcomeState];
+        const legacy   = legacyMirror[appState] ?? 'applied';
+        db.run(
+          `UPDATE job_applications SET application_state=?, status=?, notes=COALESCE(?,notes), updated_at=? WHERE id=?`,
+          [appState, legacy, notes ?? null, new Date().toISOString(), jobId],
+        );
+      });
+    }
+
+    store.close();
+    res.json({ ok: true, jobId, outcomeState, twinId: resolvedTwinId });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+// ── GET /api/work/applications/:jobId/dia ─────────────────────────────────────
+// Retorna timeline D.I.A. de uma candidatura.
+app.get('/api/work/applications/:jobId/dia', async (req: Request, res: Response) => {
+  try {
+    const jobId = String(req.params['jobId']);
+    const { ProfessionalTwinsStore } = await import('../twin/professional-twins.js');
+    const store    = await ProfessionalTwinsStore.create();
+    const timeline = store.getOutcomeTimeline(jobId);
+    const current  = timeline.length ? timeline[timeline.length - 1].outcomeState : null;
+    store.close();
+    res.json({ jobId, timeline, current });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+// ── GET /api/work/analytics/enhanced ─────────────────────────────────────────
+// Analytics enriquecidos: Interview Rate, Offer Rate, Ghost Rate,
+// Prediction Accuracy, Average Response Time, Conversion por faixa.
+app.get('/api/work/analytics/enhanced', async (_req: Request, res: Response) => {
+  const empty = {
+    interviewRate: 0, offerRate: 0, ghostRate: 0, hiredRate: 0,
+    avgResponseDays: 0, predictionAccuracy: 0, initialized: false,
+    conversionByBand: { '95+': 0, '90+': 0, '80+': 0, '70+': 0 },
+    outcomeBreakdown: { interview: 0, offer: 0, hired: 0, rejected: 0, ghost: 0, no_response: 0 },
+    hireScoreAccuracy: 0, totalWithOutcome: 0,
+  };
+  try {
+    const tableExists = await withDb(db => {
+      try { dbQuery(db, `SELECT 1 FROM interview_outcomes LIMIT 1`); return true; }
+      catch { return false; }
+    });
+    if (!tableExists) { res.json(empty); return; }
+
+    const outcomes = await withDb(db => dbQuery(db, `
+      SELECT outcome, interview_probability_at_apply, hire_score_at_apply, response_time_days
+      FROM interview_outcomes WHERE outcome IS NOT NULL
+    `)) ?? [];
+
+    const total = outcomes.length;
+    if (total === 0) { res.json(empty); return; }
+
+    const count = (type: string) => outcomes.filter(o => o['outcome'] === type).length;
+    const interviewCount = count('interview') + count('offer') + count('hired');
+    const offerCount     = count('offer') + count('hired');
+    const ghostCount     = count('ghosted') + count('no_response');
+    const hiredCount     = count('hired');
+
+    const avgResponseDays = (() => {
+      const withDays = outcomes.filter(o => (o['response_time_days'] as number) > 0);
+      return withDays.length > 0
+        ? Math.round(withDays.reduce((s, o) => s + (o['response_time_days'] as number), 0) / withDays.length)
+        : 0;
+    })();
+
+    // Prediction accuracy
+    let correct = 0;
+    for (const o of outcomes) {
+      const ip  = (o['interview_probability_at_apply'] as number) ?? 0;
+      const got = ['interview','offer','hired'].includes(o['outcome'] as string);
+      const pred = ip >= 75;
+      if ((pred && got) || (!pred && !got)) correct++;
+    }
+
+    // Conversion by band
+    const convBand = (min: number) => {
+      const inBand = outcomes.filter(o => (o['interview_probability_at_apply'] as number) >= min);
+      if (!inBand.length) return 0;
+      const interviews = inBand.filter(o => ['interview','offer','hired'].includes(o['outcome'] as string)).length;
+      return Math.round((interviews / inBand.length) * 100);
+    };
+
+    // HireScore accuracy (correlation between hire_score and interview outcome)
+    const hsAccuracy = (() => {
+      const withHS = outcomes.filter(o => (o['hire_score_at_apply'] as number) > 0);
+      if (!withHS.length) return 0;
+      let match = 0;
+      for (const o of withHS) {
+        const hs  = (o['hire_score_at_apply'] as number) ?? 0;
+        const got = ['interview','offer','hired'].includes(o['outcome'] as string);
+        const pred = hs >= 75;
+        if ((pred && got) || (!pred && !got)) match++;
+      }
+      return Math.round((match / withHS.length) * 100);
+    })();
+
+    res.json({
+      initialized:       true,
+      totalWithOutcome:  total,
+      interviewRate:     Math.round((interviewCount / total) * 100),
+      offerRate:         Math.round((offerCount / total) * 100),
+      ghostRate:         Math.round((ghostCount / total) * 100),
+      hiredRate:         Math.round((hiredCount / total) * 100),
+      avgResponseDays,
+      predictionAccuracy: Math.round((correct / total) * 100),
+      hireScoreAccuracy: hsAccuracy,
+      conversionByBand: {
+        '95+': convBand(95),
+        '90+': convBand(90),
+        '80+': convBand(80),
+        '70+': convBand(70),
+      },
+      outcomeBreakdown: {
+        interview:   count('interview'),
+        offer:       count('offer'),
+        hired:       count('hired'),
+        rejected:    count('rejection'),
+        ghost:       count('ghosted'),
+        no_response: count('no_response'),
+      },
+    });
+  } catch (e) {
+    res.json(empty);
+  }
+});
+
+// ── GET /api/work/decision-scores ─────────────────────────────────────────────
+// Retorna hire_scores enriquecidos com Decision Score (CDS).
+// Agora também inclui decision_score, priority, priority_actions, company_tier.
+app.get('/api/work/decision-scores', async (req: Request, res: Response) => {
+  try {
+    const limit  = Math.min(parseInt(String(req.query['limit'] ?? '100'), 10), 500);
+    const priority = String(req.query['priority'] ?? 'all');
+
+    const tableExists = await withDb(db => {
+      try { dbQuery(db, `SELECT 1 FROM hire_scores LIMIT 1`); return true; }
+      catch { return false; }
+    });
+    if (!tableExists) { res.json([]); return; }
+
+    const rows = await withDb(db => {
+      let sql = `
+        SELECT
+          hs.job_id, hs.twin_id, hs.interview_probability, hs.hire_score, hs.action,
+          hs.decision_score, hs.priority, hs.priority_actions,
+          hs.company_tier, hs.company_score, hs.timing_score,
+          hs.technical_fit, hs.ats_probability, hs.competition_level,
+          hs.publication_age_days, hs.reasoning, hs.key_strengths,
+          hs.scored_at,
+          ja.company, ja.job_title, ja.status, ja.linkedin_url, ja.platform,
+          ja.applied_at, ja.updated_at
+        FROM hire_scores hs
+        JOIN job_applications ja ON hs.job_id = ja.id
+        WHERE 1=1
+      `;
+      const params: (string | number)[] = [];
+      if (priority !== 'all') { sql += ` AND hs.priority = ?`; params.push(priority); }
+      sql += ` ORDER BY COALESCE(hs.decision_score, hs.interview_probability) DESC LIMIT ?`;
+      params.push(limit);
+      return dbQuery(db, sql, params);
+    });
+
+    const { computeDecisionScore } = await import('../engine/decision-engine.js');
+    const result = (rows ?? []).map(r => {
+      const ip   = (r['interview_probability'] as number) ?? 0;
+      const age  = (r['publication_age_days'] as number) ?? 3;
+      const company = (r['company'] as string) ?? '';
+
+      // Se não tiver decision_score calculado ainda, calcula on-the-fly
+      let ds = r['decision_score'] as number | null;
+      let priority_ = r['priority'] as string | null;
+      let actions_  = [] as string[];
+      let compTier  = r['company_tier'] as string | null;
+
+      if (!ds) {
+        const cds = computeDecisionScore(
+          { interviewProbability: ip, marketContext: { competitionLevel: 'medium', publicationAgeDays: age, platformEaseScore: 70 } },
+          company,
+        );
+        ds = cds.score;
+        priority_ = cds.priority;
+        actions_  = cds.actions;
+        compTier  = cds.companyTier;
+      } else {
+        try { actions_ = JSON.parse(r['priority_actions'] as string ?? '[]'); } catch { /* */ }
+      }
+
+      return {
+        ...r,
+        decisionScore:   ds,
+        priority:        priority_,
+        priorityActions: actions_,
+        companyTier:     compTier,
+        platform:        detectPlatform(r),
+        keyStrengths:    tryParseJson(r['key_strengths'], [] as string[]),
+      };
+    });
+
+    res.json(result);
+  } catch (e) {
+    res.json([]);
   }
 });
 

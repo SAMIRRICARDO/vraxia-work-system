@@ -280,7 +280,7 @@ export async function sendServerStartup(): Promise<void> {
 // ─── Notificação de túnel (usada por start-tunnel.ts) ────────────────────────
 
 const TUNNEL_NOTIFY_TS   = path.join(WORK_DIR, 'tunnel-last-notify.txt');
-const TUNNEL_COOLDOWN_MS = 2 * 60 * 1000; // 2 min entre notificações do mesmo túnel
+const TUNNEL_COOLDOWN_MS = 15 * 60 * 1000; // 15 min entre notificações de túnel
 
 export async function sendTunnelNotification(
   tunnelUrl: string,

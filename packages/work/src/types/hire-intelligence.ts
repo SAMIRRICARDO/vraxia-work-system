@@ -145,6 +145,42 @@ export interface CvVersion {
   createdAt: string;
 }
 
+// ── D.I.A. — Outcome State Machine ───────────────────────────────────────────
+// Full application lifecycle for continuous learning.
+
+export type OutcomeState =
+  | 'applied'
+  | 'viewed'
+  | 'recruiter_contact'
+  | 'questionnaire'
+  | 'english_test'
+  | 'rh_interview'
+  | 'technical_interview'
+  | 'manager_interview'
+  | 'offer'
+  | 'rejected'
+  | 'ghost'
+  | 'hired';
+
+// ── Decision Score ────────────────────────────────────────────────────────────
+
+export type PriorityLevel = 'IMMEDIATE' | 'HIGH' | 'MEDIUM' | 'REVIEW' | 'SKIP';
+
+export interface DecisionScore {
+  score:    number;        // 0-100 composite
+  priority: PriorityLevel;
+  actions:  string[];
+  companyTier: string;
+  breakdown: {
+    interviewProbability: number;
+    companyScore:         number;
+    timingScore:          number;
+    recruiterScore:       number;
+    outcomeAdjustment:    number;
+  };
+  reasoning: string;
+}
+
 // ── HIE Config ────────────────────────────────────────────────────────────────
 
 export const HIRE_THRESHOLD  = 75;   // minimum interviewProbability to trigger application

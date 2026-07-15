@@ -282,6 +282,38 @@ export class ProfessionalTwinsStore {
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_outcomes_job      ON interview_outcomes(job_id)`);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_patterns_type_key ON learning_patterns(pattern_type, pattern_key)`);
 
+    // ── D.I.A. — Outcome Timeline (additive, never break existing rows) ────────
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS outcome_timeline (
+        id              TEXT PRIMARY KEY,
+        job_id          TEXT NOT NULL,
+        twin_id         TEXT NOT NULL,
+        outcome_state   TEXT NOT NULL,
+        notes           TEXT,
+        days_since_apply INTEGER,
+        created_at      TEXT NOT NULL
+      )
+    `);
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_otl_job ON outcome_timeline(job_id)`);
+
+    // ── New columns on hire_scores (idempotent) ────────────────────────────────
+    const addHSCol = (col: string, def: string) => {
+      try { this.db.run(`ALTER TABLE hire_scores ADD COLUMN ${col} ${def}`); } catch { /* já existe */ }
+    };
+    addHSCol('decision_score   REAL',   'DEFAULT NULL');
+    addHSCol('priority         TEXT',   'DEFAULT NULL');
+    addHSCol('priority_actions TEXT',   'DEFAULT NULL');
+    addHSCol('company_tier     TEXT',   'DEFAULT NULL');
+    addHSCol('company_score    REAL',   'DEFAULT NULL');
+    addHSCol('timing_score     REAL',   'DEFAULT NULL');
+
+    // ── New columns on interview_outcomes ──────────────────────────────────────
+    const addIOCol = (col: string, def: string) => {
+      try { this.db.run(`ALTER TABLE interview_outcomes ADD COLUMN ${col} ${def}`); } catch { /* já existe */ }
+    };
+    addIOCol('outcome_state    TEXT',   'DEFAULT NULL');
+    addIOCol('current_state    TEXT',   'DEFAULT NULL');
+
     this.persist();
   }
 
@@ -585,6 +617,81 @@ export class ProfessionalTwinsStore {
         lastUpdated: obj['last_updated'] as string,
       };
     });
+  }
+
+  // ── D.I.A. Outcome Timeline ───────────────────────────────────────────────
+
+  saveOutcomeTimeline(entry: {
+    id: string;
+    jobId: string;
+    twinId: string;
+    outcomeState: string;
+    notes?: string;
+    daysSinceApply?: number;
+  }): void {
+    this.db.run(`
+      INSERT INTO outcome_timeline (id, job_id, twin_id, outcome_state, notes, days_since_apply, created_at)
+      VALUES (?,?,?,?,?,?,?)
+      ON CONFLICT(id) DO NOTHING
+    `, [
+      entry.id, entry.jobId, entry.twinId, entry.outcomeState,
+      entry.notes ?? null, entry.daysSinceApply ?? null,
+      new Date().toISOString(),
+    ]);
+    this.persist();
+  }
+
+  getOutcomeTimeline(jobId: string): Array<{
+    id: string; jobId: string; twinId: string; outcomeState: string;
+    notes: string | null; daysSinceApply: number | null; createdAt: string;
+  }> {
+    const res = this.db.exec(
+      `SELECT id, job_id, twin_id, outcome_state, notes, days_since_apply, created_at
+       FROM outcome_timeline WHERE job_id = ? ORDER BY created_at ASC`,
+      [jobId],
+    );
+    if (!res.length) return [];
+    const cols = res[0].columns;
+    return res[0].values.map(row => {
+      const obj: Record<string, unknown> = {};
+      cols.forEach((c, i) => obj[c] = row[i]);
+      return {
+        id:             obj['id'] as string,
+        jobId:          obj['job_id'] as string,
+        twinId:         obj['twin_id'] as string,
+        outcomeState:   obj['outcome_state'] as string,
+        notes:          obj['notes'] as string | null,
+        daysSinceApply: obj['days_since_apply'] as number | null,
+        createdAt:      obj['created_at'] as string,
+      };
+    });
+  }
+
+  // ── Update decision_score in hire_scores ──────────────────────────────────
+
+  saveDecisionScore(jobId: string, opts: {
+    decisionScore: number;
+    priority: string;
+    priorityActions: string[];
+    companyTier: string;
+    companyScore: number;
+    timingScore: number;
+  }): void {
+    this.db.run(`
+      UPDATE hire_scores SET
+        decision_score   = ?,
+        priority         = ?,
+        priority_actions = ?,
+        company_tier     = ?,
+        company_score    = ?,
+        timing_score     = ?
+      WHERE job_id = ?
+    `, [
+      opts.decisionScore, opts.priority, JSON.stringify(opts.priorityActions),
+      opts.companyTier, opts.companyScore, opts.timingScore,
+      jobId,
+    ]);
+    this.persist();
   }
 
   close(): void { this.persist(); this.db.close(); }

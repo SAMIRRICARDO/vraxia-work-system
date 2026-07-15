@@ -658,12 +658,14 @@
                 <th>Plataforma</th>
                 <th>Modalidade</th>
                 <th onclick="toggleHireSort()" title="Clique para ordenar por probabilidade de entrevista&#10;APPLY ≥75% | REVIEW ≥60% | SKIP &lt;60%&#10;Fallback para Match Score se Hire Score indisponível" style="cursor:pointer;user-select:none;white-space:nowrap;">Hiring Prob <span id="hire-sort-icon" style="font-size:11px;opacity:.7;">↕</span></th>
+                <th title="Decision Score = IP×50% + Empresa×15% + Timing×10% + Recrutador×10% + Learning×15%">Decision Score</th>
+                <th>Outcome</th>
                 <th>Status</th>
                 <th>Ação</th>
               </tr>
             </thead>
             <tbody id="apps-tbody">
-              <tr><td colspan="8" class="empty-state py-12"><span class="spinner"></span></td></tr>
+              <tr><td colspan="10" class="empty-state py-12"><span class="spinner"></span></td></tr>
             </tbody>
           </table>
         </div>
@@ -1256,6 +1258,18 @@
       </div>
     </div>
 
+    <!-- ── SECTION 6b: D.I.A. ENHANCED ANALYTICS ────────────────────────────── -->
+    <div id="sec-dia-analytics" class="px-8 py-6 border-b border-white/5">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="live-dot" style="background:#22d3ee;box-shadow:0 0 6px rgba(34,211,238,.6)"></span>
+        <span class="text-xs font-mono text-gray-400 uppercase tracking-widest">D.I.A. — Performance &amp; Prediction Accuracy</span>
+        <button onclick="loadEnhancedAnalytics()" class="ml-auto text-xs text-gray-600 hover:text-gray-400 transition">↻ refresh</button>
+      </div>
+      <div id="enhanced-analytics-content">
+        <div class="empty-state py-6 text-xs text-gray-600">Registre outcomes nas candidaturas para ver métricas de aprendizado.</div>
+      </div>
+    </div>
+
     <!-- ── SECTION 7: TRUTH ENGINE ─────────────────────────────────────────── -->
     <div id="sec-truth" class="px-8 py-6 border-b border-white/5">
       <div class="flex items-center gap-2 mb-2">
@@ -1448,6 +1462,22 @@
     </div>
     <div id="audit-modal-content">
       <div class="empty-state py-8"><span class="spinner"></span> Carregando auditoria...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ D.I.A. MODAL ══════════════════════════════════════════════════════════ -->
+<div id="dia-modal" style="display:none;position:fixed;inset:0;z-index:1003;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);" onclick="if(event.target===this)closeDIA()">
+  <div class="glass" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(580px,94vw);max-height:88vh;overflow-y:auto;border-radius:20px;padding:28px;border:1px solid rgba(34,211,238,.2);">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#22d3ee;">📈 D.I.A. — Decisão Informada por Aprendizado</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:2px;" id="dia-modal-subtitle"></div>
+      </div>
+      <button onclick="closeDIA()" class="btn btn-ghost text-xs">✕ Fechar</button>
+    </div>
+    <div id="dia-modal-content">
+      <div class="empty-state py-8"><span class="spinner"></span></div>
     </div>
   </div>
 </div>
@@ -1800,6 +1830,85 @@ function toggleHireSort() {
   applyAppSort();
 }
 
+// ── Decision Score helpers (browser-side) ─────────────────────────────────────
+const _BIG_TECH = new Set(['google','meta','amazon','apple','microsoft','netflix','nvidia','alphabet','openai','anthropic','deepmind','salesforce','oracle','ibm','intel','adobe','spotify','airbnb','uber','linkedin','stripe','palantir','databricks']);
+const _UNICORNS_BR = new Set(['nubank','totvs','ifood','stone','pagseguro','pagbank','inter','creditas','gympass','dock','neon','cloudwalk','olist','vtex','enjoei','meli','mercadolivre','rappi','loft','quintoandar','ebanx','pismo','woovi','ci&t','btg','xp','upbi','outly','caju','contabilizei']);
+const _PREMIUM = new Set(['thoughtworks','accenture','mckinsey','bcg','deloitte','kpmg','pwc','ey','capgemini','infosys','wipro','tcs','cognizant']);
+
+function _companyScore(company) {
+  const n = (company || '').toLowerCase().replace(/[^a-z0-9&]/g, ' ');
+  if ([..._BIG_TECH].some(c => n.includes(c)))    return { s: 95, t: 'BIG_TECH',  label: '🏢 Big Tech' };
+  if ([..._PREMIUM].some(c => n.includes(c)))     return { s: 85, t: 'PREMIUM',   label: '⭐ Premium' };
+  if ([..._UNICORNS_BR].some(c => n.includes(c))) return { s: 88, t: 'UNICORN',   label: '🦄 Unicórnio' };
+  if (/s\.a\.|s\/a|ltda| inc| corp| group/i.test(n)) return { s: 72, t: 'FORTUNE', label: '🏦 Established' };
+  return { s: 55, t: 'UNKNOWN', label: '' };
+}
+
+function _timingScore(age) {
+  if (age < 1)  return 100;
+  if (age <= 1) return 95;
+  if (age <= 2) return 88;
+  if (age <= 3) return 80;
+  if (age <= 5) return 65;
+  if (age <= 7) return 50;
+  if (age <= 14) return 30;
+  return 10;
+}
+
+function _decisionScore(ip, company, ageDays) {
+  const cs = _companyScore(company);
+  const ts = _timingScore(ageDays ?? 3);
+  const raw = ip * 0.50 + cs.s * 0.15 + ts * 0.10 + 50 * 0.25; // recruiter=50 baseline
+  const score = Math.min(100, Math.max(0, Math.round(raw)));
+  const priority = score >= 95 ? 'IMMEDIATE' : score >= 90 ? 'HIGH' : score >= 80 ? 'MEDIUM' : score >= 70 ? 'REVIEW' : 'SKIP';
+  return { score, priority, companyTier: cs.t, companyLabel: cs.label };
+}
+
+function decisionScoreBadge(ip, company, ageDays) {
+  if (ip == null) return '<span style="color:#374151;font-size:11px;">—</span>';
+  const { score, priority, companyLabel } = _decisionScore(ip, company, ageDays);
+  const color =
+    priority === 'IMMEDIATE' ? '#22d3ee' :
+    priority === 'HIGH'      ? '#22c55e' :
+    priority === 'MEDIUM'    ? '#60a5fa' :
+    priority === 'REVIEW'    ? '#fbbf24' : '#6b7280';
+  const pBadge =
+    priority === 'IMMEDIATE' ? '🚀 IMEDIATO' :
+    priority === 'HIGH'      ? '⬆ ALTO'    :
+    priority === 'MEDIUM'    ? '→ MÉDIO'    :
+    priority === 'REVIEW'    ? '👁 REVIEW'  : '⏭ SKIP';
+  return `<div style="text-align:center;min-width:70px;" title="Decision Score: ${score}\nPrioridade: ${priority}\n${companyLabel}">
+    <div style="font-size:12px;font-weight:800;color:${color};font-family:'JetBrains Mono',monospace;">${score}</div>
+    <div style="font-size:9px;color:${color};font-weight:600;margin-top:1px;">${pBadge}</div>
+    ${companyLabel ? `<div style="font-size:9px;color:#6b7280;margin-top:1px;">${companyLabel}</div>` : ''}
+  </div>`;
+}
+
+// D.I.A. outcome state display
+let _diaMap = {}; // jobId → { current, timeline }
+
+const DIA_LABELS = {
+  applied: 'Aplicado', viewed: 'Visualizado', recruiter_contact: 'Contato RH',
+  questionnaire: 'Questionário', english_test: 'Teste Inglês',
+  rh_interview: 'Entrev. RH', technical_interview: 'Entrev. Técnica',
+  manager_interview: 'Entrev. Gestor', offer: 'Oferta!', rejected: 'Rejeitado',
+  ghost: 'Ghost', hired: 'Contratado!',
+};
+const DIA_COLORS = {
+  applied: '#60a5fa', viewed: '#93c5fd', recruiter_contact: '#22d3ee',
+  questionnaire: '#a78bfa', english_test: '#a78bfa',
+  rh_interview: '#22c55e', technical_interview: '#22c55e', manager_interview: '#22c55e',
+  offer: '#fbbf24', rejected: '#ef4444', ghost: '#6b7280', hired: '#22d3ee',
+};
+
+function outcomeBadge(jobId) {
+  const dia = _diaMap[jobId];
+  if (!dia?.current || dia.current === 'applied') return '<span style="color:#374151;font-size:10px;">—</span>';
+  const label = DIA_LABELS[dia.current] ?? dia.current;
+  const color = DIA_COLORS[dia.current] ?? '#6b7280';
+  return `<span style="font-size:10px;font-weight:700;color:${color};white-space:nowrap;" title="D.I.A. — ${label}">${label}</span>`;
+}
+
 function renderAppRows(rows) {
   return rows.map(row => {
     // Hire Score lookup — falls back to legacy score_total if not yet scored
@@ -1808,6 +1917,11 @@ function renderAppRows(rows) {
       hs?.interview_probability ?? null,
       hs?.action ?? null,
       row.score_total,
+    );
+    const dsCell = decisionScoreBadge(
+      hs?.interview_probability ?? null,
+      row.company,
+      hs?.publication_age_days ?? null,
     );
     // data-job-id is used by Phase 3 (WHY NOT) and Phase 4 (HOW TO WIN) buttons
     return `
@@ -1818,14 +1932,17 @@ function renderAppRows(rows) {
       <td>${platformBadge(row.platform)}</td>
       <td>${modalityBadge(row.modality)}</td>
       <td>${scoreCell}</td>
+      <td>${dsCell}</td>
+      <td>${outcomeBadge(row.id)}</td>
       <td>${statusBadge(row.status)}</td>
       <td style="white-space:nowrap;display:flex;gap:4px;align-items:center;">
         ${row.linkedin_url
           ? `<a href="${esc(row.linkedin_url)}" target="_blank" class="btn btn-ghost text-xs px-3 py-1.5">Ver ↗</a>`
           : ''
         }
+        <button onclick="openDIA('${esc(row.id)}','${esc(row.company)}','${esc(row.job_title)}')" class="btn btn-ghost text-xs px-2 py-1.5" title="D.I.A. — Registrar outcome" style="color:#22d3ee;">📈</button>
         <button onclick="openAudit('${esc(row.id)}','${esc(row.company)}','${esc(row.job_title)}')" class="btn btn-ghost text-xs px-2 py-1.5" title="Auditoria Truth Engine" style="color:#a78bfa;">🔍</button>
-        <button onclick="openExplain('${esc(row.id)}','${esc(row.company)}','${esc(row.job_title)}')" class="btn btn-ghost text-xs px-2 py-1.5" title="Por que esta decisão? (WHY NOT — Fase 3 expande este painel)">❓</button>
+        <button onclick="openExplain('${esc(row.id)}','${esc(row.company)}','${esc(row.job_title)}')" class="btn btn-ghost text-xs px-2 py-1.5" title="Por que esta decisão?">❓</button>
         <button onclick="openATS('${esc(row.id)}','${esc(row.job_title)}')" class="btn btn-ghost text-xs px-2 py-1.5" title="Analisar ATS">📊</button>
         <button onclick="openResume('${esc(row.id)}','${esc(row.company)}','${esc(row.job_title)}')" class="btn btn-ghost text-xs px-2 py-1.5" title="Gerar CV adaptado">📄</button>
         <button onclick="openInterview('${esc(row.id)}','${esc(row.company)}','${esc(row.job_title)}')" class="btn btn-ghost text-xs px-2 py-1.5" title="Treinar entrevista">🎓</button>
@@ -1844,7 +1961,7 @@ function showAllApps() {
 async function loadApplications(silent = false) {
   const tbody = $('apps-tbody');
   if (!silent) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty-state py-8"><span class="spinner"></span></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="empty-state py-8"><span class="spinner"></span></td></tr>';
     $('show-all-wrapper').style.display = 'none';
   }
 
@@ -1868,13 +1985,13 @@ async function loadApplications(silent = false) {
     $('table-count').textContent = `(${rows.length})`;
 
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="8" class="empty-state py-10 text-sm">Nenhuma candidatura encontrada</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10" class="empty-state py-10 text-sm">Nenhuma candidatura encontrada</td></tr>`;
       return;
     }
 
     applyAppSort();
   } catch {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty-state py-8 text-red-400">Erro ao carregar candidaturas</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="empty-state py-8 text-red-400">Erro ao carregar candidaturas</td></tr>`;
   }
 }
 
@@ -2457,6 +2574,8 @@ async function refreshAll() {
   loadOpportunityFeed();      // non-blocking — reads only from _hireScoreMap
   loadCareerIntelligence();   // non-blocking — shows empty state if no outcomes
   loadPredictionStats();      // non-blocking — shows empty state if no outcomes
+  refreshDIAMap();            // non-blocking — populates _diaMap for outcome badges
+  loadEnhancedAnalytics();    // non-blocking — analytics section
 }
 
 // ══ INIT ═════════════════════════════════════════════════════════════════════
@@ -3214,7 +3333,7 @@ async function openHowToWin(jobId, company, title) {
     <div style="text-align:center;margin-bottom:16px;">
       <div style="font-size:10px;color:#6b7280;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Interview Probability Atual</div>
       <div style="font-size:34px;font-weight:900;font-family:'JetBrains Mono',monospace;color:${ipCol}">${ip}%</div>
-      ${ip < 90 ? `<div style="font-size:11px;color:#6b7280;margin-top:3px;">Faltam <strong style="color:#f59e0b;">${90 - ip} pts</strong> para o gate APPLY (≥90%)</div>` : ''}
+      ${ip < 75 ? `<div style="font-size:11px;color:#6b7280;margin-top:3px;">Faltam <strong style="color:#f59e0b;">${75 - ip} pts</strong> para o gate APPLY (≥75%)</div>` : ip < 90 ? `<div style="font-size:11px;color:#22c55e;margin-top:3px;">Acima do gate APPLY ≥75% — elegível para candidatura</div>` : `<div style="font-size:11px;color:#22d3ee;margin-top:3px;">Prioridade máxima — IP ≥ 90%</div>`}
     </div>
 
     <div class="space-y-3">
@@ -3299,8 +3418,8 @@ async function openExplain(jobId, company, title) {
       $('explain-content').innerHTML = `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
           <div class="glass rounded-lg p-3 text-center">
-            <div style="font-size:26px;font-weight:900;font-family:'JetBrains Mono',monospace;color:${ip>=90?'#22c55e':ip>=75?'#fbbf24':'#ef4444'}">${ip}%</div>
-            <div style="font-size:10px;color:#6b7280;margin-top:2px;">Interview Probability</div>
+            <div style="font-size:26px;font-weight:900;font-family:'JetBrains Mono',monospace;color:${ip>=90?'#22d3ee':ip>=75?'#22c55e':ip>=60?'#fbbf24':'#ef4444'}">${ip}%</div>
+            <div style="font-size:10px;color:#6b7280;margin-top:2px;">Interview Probability ${ip>=75?'✅ gate APPLY':ip>=60?'⚠️ REVIEW':'⛔ SKIP'}</div>
           </div>
           <div class="glass rounded-lg p-3 text-center">
             <div style="font-size:26px;font-weight:900;font-family:'JetBrains Mono',monospace;color:${actColor}">${act}</div>
@@ -4322,6 +4441,173 @@ async function generateFollowUp(id, name, company) {
   if (msg.message) {
     prompt(`Follow-up gerado para ${name} @ ${company}:\n\n(Copie a mensagem abaixo)`, msg.message);
   }
+}
+
+// ── D.I.A. Modal ──────────────────────────────────────────────────────────────
+function closeDIA() { $('dia-modal').style.display = 'none'; }
+
+const DIA_ALL_STATES = [
+  'applied','viewed','recruiter_contact','questionnaire','english_test',
+  'rh_interview','technical_interview','manager_interview','offer','rejected','ghost','hired',
+];
+
+const DIA_STATE_ICONS = {
+  applied:'📤', viewed:'👁', recruiter_contact:'📞', questionnaire:'📝',
+  english_test:'🇬🇧', rh_interview:'🤝', technical_interview:'💻',
+  manager_interview:'👔', offer:'🎁', rejected:'❌', ghost:'👻', hired:'🎉',
+};
+
+async function openDIA(jobId, company, jobTitle) {
+  $('dia-modal-subtitle').textContent = `${company} — ${jobTitle}`;
+  $('dia-modal-content').innerHTML = '<div class="empty-state py-8"><span class="spinner"></span> Carregando...</div>';
+  $('dia-modal').style.display = 'block';
+
+  let currentState = _diaMap[jobId]?.current ?? 'applied';
+  let timeline = _diaMap[jobId]?.timeline ?? [];
+
+  try {
+    const r = await fetch(`${API}/api/work/applications/${encodeURIComponent(jobId)}/dia`);
+    if (r.ok) {
+      const d = await r.json();
+      currentState = d.current ?? 'applied';
+      timeline = d.timeline ?? [];
+    }
+  } catch {}
+
+  renderDIAContent(jobId, company, jobTitle, currentState, timeline);
+}
+
+function renderDIAContent(jobId, company, jobTitle, currentState, timeline) {
+  const stateButtons = DIA_ALL_STATES.map(s => {
+    const active = s === currentState;
+    const col = DIA_COLORS[s] ?? '#6b7280';
+    const border = active ? `border:2px solid ${col}` : 'border:2px solid #1f2937';
+    return `<button onclick="recordDIAState('${esc(jobId)}','${s}','${esc(company)}','${esc(jobTitle)}')"
+      style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;${border};background:${active ? col + '22' : 'rgba(17,24,39,0.6)'};cursor:pointer;color:${active ? col : '#9ca3af'};font-size:12px;font-weight:${active ? '700' : '500'};transition:all .15s;">
+      <span>${DIA_STATE_ICONS[s] ?? '•'}</span>
+      <span>${DIA_LABELS[s] ?? s}</span>
+      ${active ? '<span style="margin-left:auto;font-size:10px;opacity:.7;">● atual</span>' : ''}
+    </button>`;
+  }).join('');
+
+  const timelineHtml = timeline.length
+    ? timeline.map(t => {
+        const col = DIA_COLORS[t.outcome_state] ?? '#6b7280';
+        return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #1f2937;">
+          <div style="width:8px;height:8px;border-radius:50%;background:${col};margin-top:4px;flex-shrink:0;"></div>
+          <div style="flex:1;">
+            <div style="font-size:12px;font-weight:600;color:${col};">${DIA_LABELS[t.outcome_state] ?? t.outcome_state}</div>
+            <div style="font-size:10px;color:#6b7280;margin-top:2px;">${t.created_at ? new Date(t.created_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : ''}</div>
+            ${t.notes ? `<div style="font-size:11px;color:#9ca3af;margin-top:2px;">${esc(t.notes)}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('')
+    : '<div style="font-size:11px;color:#4b5563;padding:8px 0;">Nenhum evento registrado ainda.</div>';
+
+  $('dia-modal-content').innerHTML = `
+    <div style="margin-bottom:16px;">
+      <div style="font-size:11px;color:#6b7280;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;">Estado atual do processo</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;">
+        ${stateButtons}
+      </div>
+    </div>
+    <div id="dia-notes-area" style="margin-bottom:16px;">
+      <div style="font-size:11px;color:#6b7280;margin-bottom:6px;">Nota (opcional)</div>
+      <textarea id="dia-note-input" placeholder="Ex: Recebi retorno do recrutador, entrevista agendada para quinta..." style="width:100%;padding:8px 10px;border-radius:8px;background:#111827;border:1px solid #1f2937;color:#e5e7eb;font-size:12px;resize:none;min-height:60px;"></textarea>
+    </div>
+    <div style="margin-top:16px;">
+      <div style="font-size:11px;color:#6b7280;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;">Histórico</div>
+      <div style="max-height:200px;overflow-y:auto;">${timelineHtml}</div>
+    </div>
+  `;
+}
+
+async function recordDIAState(jobId, state, company, jobTitle) {
+  const notes = ($('dia-note-input')?.value ?? '').trim();
+  const btn = event.target.closest('button');
+  if (btn) btn.style.opacity = '.5';
+
+  try {
+    const r = await fetch(`${API}/api/work/applications/${encodeURIComponent(jobId)}/dia`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ outcomeState: state, notes }),
+    });
+    const d = await r.json();
+    if (d.error) { alert('Erro: ' + d.error); return; }
+
+    // Update local map
+    _diaMap[jobId] = { current: state, timeline: d.timeline ?? [] };
+
+    // Re-render modal + update row badge
+    renderDIAContent(jobId, company, jobTitle, state, d.timeline ?? []);
+
+    // Refresh visible badge in table without full reload
+    const row = document.querySelector(`tr[data-job-id="${CSS.escape(jobId)}"]`);
+    if (row) {
+      const outcomeTd = row.cells[7]; // 0-date 1-company 2-title 3-platform 4-modality 5-score 6-ds 7-outcome
+      if (outcomeTd) outcomeTd.innerHTML = outcomeBadge(jobId);
+    }
+  } catch (e) {
+    alert('API offline — tente novamente');
+  } finally {
+    if (btn) btn.style.opacity = '1';
+  }
+}
+
+async function refreshDIAMap() {
+  if (!_allAppRows?.length) return;
+  for (const row of _allAppRows.slice(0, 50)) {
+    try {
+      const r = await fetch(`${API}/api/work/applications/${encodeURIComponent(row.id)}/dia`);
+      if (r.ok) {
+        const d = await r.json();
+        if (d.current) _diaMap[row.id] = { current: d.current, timeline: d.timeline ?? [] };
+      }
+    } catch {}
+    await new Promise(res => setTimeout(res, 30)); // throttle
+  }
+}
+
+// ── Enhanced Analytics Section ────────────────────────────────────────────────
+async function loadEnhancedAnalytics() {
+  const el = $('enhanced-analytics-content');
+  if (!el) return;
+  try {
+    const r = await fetch(`${API}/api/work/analytics/enhanced`);
+    if (!r.ok) return;
+    const d = await r.json();
+
+    const pct = v => v != null ? `${Math.round(v * 100)}%` : '—';
+    const band = (b) => d.conversionByBand?.[b];
+
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:16px;">
+        ${[
+          ['Taxa de Entrevista',pct(d.interviewRate),'#22c55e'],
+          ['Taxa de Oferta',pct(d.offerRate),'#fbbf24'],
+          ['Ghost Rate',pct(d.ghostRate),'#6b7280'],
+          ['Contratações',pct(d.hiredRate),'#22d3ee'],
+          ['Precisão IP',pct(d.predictionAccuracy),'#a78bfa'],
+          ['Resp. Média',d.avgResponseDays != null ? `${d.avgResponseDays}d` : '—','#60a5fa'],
+        ].map(([lbl,val,col]) => `<div style="background:#0f172a;border-radius:10px;padding:12px;border:1px solid #1f2937;text-align:center;">
+          <div style="font-size:18px;font-weight:800;color:${col};">${val}</div>
+          <div style="font-size:10px;color:#6b7280;margin-top:3px;">${lbl}</div>
+        </div>`).join('')}
+      </div>
+      <div style="background:#0f172a;border-radius:10px;padding:12px;border:1px solid #1f2937;">
+        <div style="font-size:11px;color:#6b7280;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;">Conversão por Banda</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+          ${[['95+',band('95+'),'#22d3ee'],['90+',band('90+'),'#22c55e'],['80+',band('80+'),'#60a5fa'],['70+',band('70+'),'#fbbf24']].map(([lbl,b,col]) => `
+            <div style="text-align:center;">
+              <div style="font-size:11px;font-weight:700;color:${col};">IP ${lbl}</div>
+              <div style="font-size:13px;font-weight:800;color:${col};margin-top:3px;">${b?.applied ?? 0} vagas</div>
+              <div style="font-size:10px;color:#6b7280;">${pct(b?.interviewRate)} entrevistas</div>
+            </div>`).join('')}
+        </div>
+      </div>
+    `;
+  } catch {}
 }
 
 window.addEventListener('load', init);

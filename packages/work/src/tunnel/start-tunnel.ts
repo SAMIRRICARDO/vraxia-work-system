@@ -29,8 +29,18 @@ const LOCAL_CLOUDFLARED = path.join(WORK_STATE_DIR, 'cloudflared.exe');
 let shutdownRequested = false;
 
 // ── Shared: notifica Telegram + persiste URL ──────────────────────────────────
+// Only send Telegram when the URL is genuinely new (changed from last known URL).
+// This prevents spam when cloudflared restarts and gets a new subdomain.
+
+function readStoredUrl(): string {
+  try { return fs.existsSync(TUNNEL_URL_FILE) ? fs.readFileSync(TUNNEL_URL_FILE, 'utf-8').trim() : ''; }
+  catch { return ''; }
+}
 
 function onTunnelUrl(url: string, provider: 'cloudflare' | 'ngrok'): void {
+  const previousUrl = readStoredUrl();
+  const urlChanged  = url !== previousUrl;
+
   fs.writeFileSync(TUNNEL_URL_FILE, url);
 
   // Atualiza api-config.json do dashboard (Vercel lê este arquivo)
@@ -44,7 +54,15 @@ function onTunnelUrl(url: string, provider: 'cloudflare' | 'ngrok'): void {
 
   console.log(`\n[Tunnel] ✅ URL pública (${provider}): ${url}`);
   console.log(`[Tunnel] Dashboard: https://ai-cognitive-runtime.vercel.app\n`);
-  sendTunnelNotification(url, provider).catch(() => {});
+
+  // Only send Telegram if tunnel was previously DOWN (empty URL) or if it's genuinely a first start.
+  // This prevents notification spam when cloudflared restarts and assigns a new random subdomain.
+  const wasDown = !previousUrl;
+  if (wasDown) {
+    sendTunnelNotification(url, provider).catch(() => {});
+  } else {
+    console.log('[Tunnel] Túnel reiniciado com nova URL — notificação Telegram suprimida (estava ativo antes).');
+  }
 }
 
 // ── Cloudflared ───────────────────────────────────────────────────────────────
@@ -228,6 +246,9 @@ process.on('SIGTERM', () => { shutdownRequested = true; process.exit(0); });
 
 loadEnv();
 fs.mkdirSync(WORK_STATE_DIR, { recursive: true });
+// Clear tunnel URL at startup so the first successful URL always notifies Telegram.
+// This prevents suppression when the tunnel process is restarted (new deploy, server restart).
+try { fs.writeFileSync(TUNNEL_URL_FILE, ''); } catch {}
 
 startCloudflared(0).catch(err => {
   console.error('[Tunnel] Erro fatal no cloudflared:', err);
