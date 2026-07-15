@@ -1798,7 +1798,7 @@ function applyAppSort() {
     $('btn-show-all-label').textContent = `Ver todas as ${_allAppRows.length} candidaturas (+${remaining} ocultas)`;
     $('show-all-wrapper').style.display = 'block';
   }
-  lucide.createIcons();
+  lucide.createIcons({ nodes: [tbody] });
 }
 
 function toggleHireSort() {
@@ -2555,12 +2555,11 @@ async function init() {
       }
     } catch {}
   }
-  // Poll rápido (8s) durante hunt ativo, lento (60s) em repouso
+  // Polling fixo de 60s — hunt status é rastreado separadamente por startHuntPolling (3s)
   let _dbMtimeTimer = null;
   function scheduleDbMtime() {
     if (_dbMtimeTimer) clearTimeout(_dbMtimeTimer);
-    const interval = huntPolling ? 8_000 : 60_000;
-    _dbMtimeTimer = setTimeout(async () => { await checkDbMtime(); scheduleDbMtime(); }, interval);
+    _dbMtimeTimer = setTimeout(async () => { await checkDbMtime(); scheduleDbMtime(); }, 60_000);
   }
   checkDbMtime().then(scheduleDbMtime); // roda imediatamente no load
 }
