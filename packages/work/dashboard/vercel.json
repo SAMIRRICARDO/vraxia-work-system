@@ -2,6 +2,7 @@
   "version": 2,
   "routes": [
     { "src": "/questionnaire-data.json", "dest": "/questionnaire-data.json" },
+    { "src": "/api-config.json",         "dest": "/api-config.json" },
     { "src": "/(.*)", "dest": "/index.html" }
   ],
   "headers": [
