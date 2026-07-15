@@ -657,7 +657,7 @@
                 <th>Cargo</th>
                 <th>Plataforma</th>
                 <th>Modalidade</th>
-                <th title="Interview Probability — P(entrevista) calculado pelo HireScore Engine&#10;APPLY ≥90% | REVIEW ≥75% | SKIP &lt;75%&#10;Fallback para Match Score se Hire Score indisponível" style="cursor:help;">Hiring Prob ⓘ</th>
+                <th onclick="toggleHireSort()" title="Clique para ordenar por probabilidade de entrevista&#10;APPLY ≥75% | REVIEW ≥60% | SKIP &lt;60%&#10;Fallback para Match Score se Hire Score indisponível" style="cursor:pointer;user-select:none;white-space:nowrap;">Hiring Prob <span id="hire-sort-icon" style="font-size:11px;opacity:.7;">↕</span></th>
                 <th>Status</th>
                 <th>Ação</th>
               </tr>
@@ -1773,6 +1773,38 @@ function debounceSearch() {
 
 let _allAppRows = [];
 const APPS_PAGE_SIZE = 10;
+let _appSortDir = null; // 'desc' | 'asc' | null (ordem do servidor)
+
+function getRowIP(row) {
+  return _hireScoreMap[row.id]?.interview_probability ?? row.score_total ?? 0;
+}
+
+function applyAppSort() {
+  if (_appSortDir) {
+    _allAppRows.sort((a, b) =>
+      _appSortDir === 'desc'
+        ? getRowIP(b) - getRowIP(a)
+        : getRowIP(a) - getRowIP(b)
+    );
+  }
+  const icon = $('hire-sort-icon');
+  if (icon) icon.textContent = _appSortDir === 'desc' ? '↓' : _appSortDir === 'asc' ? '↑' : '↕';
+
+  const tbody = $('apps-tbody');
+  const visible = _allAppRows.slice(0, APPS_PAGE_SIZE);
+  tbody.innerHTML = renderAppRows(visible);
+  if (_allAppRows.length > APPS_PAGE_SIZE) {
+    const remaining = _allAppRows.length - APPS_PAGE_SIZE;
+    $('btn-show-all-label').textContent = `Ver todas as ${_allAppRows.length} candidaturas (+${remaining} ocultas)`;
+    $('show-all-wrapper').style.display = 'block';
+  }
+  lucide.createIcons();
+}
+
+function toggleHireSort() {
+  _appSortDir = _appSortDir === 'desc' ? 'asc' : 'desc';
+  applyAppSort();
+}
 
 function renderAppRows(rows) {
   return rows.map(row => {
@@ -1847,15 +1879,7 @@ async function loadApplications(silent = false) {
       return;
     }
 
-    const visible = rows.slice(0, APPS_PAGE_SIZE);
-    tbody.innerHTML = renderAppRows(visible);
-
-    if (rows.length > APPS_PAGE_SIZE) {
-      const remaining = rows.length - APPS_PAGE_SIZE;
-      $('btn-show-all-label').textContent = `Ver todas as ${rows.length} candidaturas (+${remaining} ocultas)`;
-      $('show-all-wrapper').style.display = 'block';
-      lucide.createIcons();
-    }
+    applyAppSort();
   } catch {
     tbody.innerHTML = `<tr><td colspan="8" class="empty-state py-8 text-red-400">Erro ao carregar candidaturas</td></tr>`;
   }
