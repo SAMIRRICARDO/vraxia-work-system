@@ -18,6 +18,7 @@ import { ObsidianVaultLoader } from '../rag/vault-loader.js';
 import { VaultRetriever } from '../rag/retriever.js';
 import { CandidateKBLoader } from '../rag/candidate-kb-loader.js';
 import { CandidateKBRetriever } from '../rag/candidate-kb-retriever.js';
+import { CandidateProfileLoader } from '../rag/candidate-profile-loader.js';
 import { MatchAgent } from '../agents/MatchAgent.js';
 import { HireScoreAgent } from '../agents/HireScoreAgent.js';
 import { TwinSelectorAgent } from '../agents/TwinSelectorAgent.js';
@@ -28,11 +29,15 @@ import { ProfessionalTwinsStore } from '../twin/professional-twins.js';
 import { CareerMemory } from '../memory/career-memory.js';
 import { JobSearchConfig, CathoSearchConfig, CathoJob, Job, ApplicationStatus, JobScore } from '../types/index.js';
 import type { HireScore } from '../types/hire-intelligence.js';
-import { HIRE_THRESHOLD } from '../types/hire-intelligence.js';
+import { HIRE_THRESHOLD, REVIEW_THRESHOLD } from '../types/hire-intelligence.js';
 import { GreenhouseApplyEngine } from '../engine/greenhouse.js';
 // ── Nova arquitetura de candidatura ──────────────────────────────────────────
 import { ApplicationService } from '../application/ApplicationService.js';
 import { ApplicationRepository } from '../application/ApplicationRepository.js';
+import { ATSOptimizerAgent } from '../agents/ATSOptimizerAgent.js';
+import type { ATSOptimizationResult } from '../agents/ATSOptimizerAgent.js';
+import { coverLetter } from '../marketplace/plugins/cover-letter.js';
+import { LearningEngine } from '../engine/learning-engine.js';
 
 program
   .option('--platform <p>', 'Plataforma: linkedin | gupy | catho | all', 'all')
@@ -176,6 +181,169 @@ function extractKeywords(job: Job): string[] {
   return [...new Set(matches.map(k => k.toLowerCase()))].slice(0, 15);
 }
 
+// Estima idade da vaga em horas (undefined → assume 72h = 3 dias)
+function estimateAgeHours(postedAt: string | undefined): number {
+  if (!postedAt) return 72;
+  try { return Math.max(0, (Date.now() - new Date(postedAt).getTime()) / 3_600_000); }
+  catch { return 72; }
+}
+
+// Ordena vagas da mais recente para a mais antiga — apply em < 24h tem 4x mais callback
+function sortNewestFirst<T extends { postedAt?: string }>(jobs: T[]): T[] {
+  return [...jobs].sort((a, b) => estimateAgeHours(a.postedAt) - estimateAgeHours(b.postedAt));
+}
+
+// Imprime motivos estruturados de descarte (WHY NOT) — ajuda a calibrar twins e thresholds
+function printWhyNot(hs: HireScore): void {
+  const reasons: string[] = [];
+  const age = hs.marketContext.publicationAgeDays;
+  if (age > 7)  reasons.push(`Publicada há ${age} dias`);
+  if (hs.marketContext.competitionLevel === 'very_high') reasons.push('Competição muito alta');
+  else if (hs.marketContext.competitionLevel === 'high')  reasons.push('Competição alta');
+  if (hs.dimensions.atsProbability < 60)  reasons.push(`ATS fraco: ${hs.dimensions.atsProbability}%`);
+  if (hs.atsKeywordsMissing.length)       reasons.push(`Missing: ${hs.atsKeywordsMissing.slice(0, 3).join(', ')}`);
+  if (hs.keyWeaknesses.length)            reasons.push(hs.keyWeaknesses[0]);
+  console.log(`  [WHY NOT] HS ${hs.hireScore}/100 · IP ${hs.interviewProbability}%`);
+  for (const r of reasons) console.log(`    × ${r}`);
+}
+
+// Imprime plano de ação quando action=REVIEW — O QUE FAZER para chegar a APPLY
+function printHowToWin(hs: HireScore): void {
+  const gap = HIRE_THRESHOLD - hs.interviewProbability;
+  console.log(`  [HOW TO WIN] Faltam ${gap} pontos de IP para APPLY (IP: ${hs.interviewProbability}% / HS: ${hs.hireScore}/100)`);
+
+  const suggestions: string[] = [];
+  const d = hs.dimensions;
+
+  if (d.atsProbability < 80 && hs.atsKeywordsMissing.length)
+    suggestions.push(`Adicionar keywords ao twin: ${hs.atsKeywordsMissing.slice(0, 4).join(', ')}`);
+  if (d.technicalFit < 85) {
+    const impact = Math.round((85 - d.technicalFit) * 0.35);
+    suggestions.push(`Fortalecer stack técnico (+${impact}pts potenciais, fit atual: ${d.technicalFit}/100)`);
+  }
+  if (hs.marketContext.competitionLevel === 'very_high')
+    suggestions.push('Competição muito alta — priorizar referral ou contato direto');
+  if (hs.marketContext.publicationAgeDays > 5)
+    suggestions.push(`Vaga antiga (${hs.marketContext.publicationAgeDays}d) — monitorar reposts desta empresa`);
+  if (d.seniorityFit < 80)
+    suggestions.push(`Destacar experiência sênior/lead (fit atual: ${d.seniorityFit}/100)`);
+  if (d.salaryFit < 70)
+    suggestions.push('Expectativa salarial acima do range — ajustar alvo salarial no twin');
+
+  const top = suggestions.slice(0, 3);
+  if (top.length) {
+    for (const s of top) console.log(`    → ${s}`);
+  } else {
+    console.log('    → Score próximo do threshold — ajuste fino de keywords pode ser suficiente');
+  }
+}
+
+// Imprime e persiste resultado do ATSOptimizer (cobertura de keywords JD→CV)
+function printATSResult(r: ATSOptimizationResult): void {
+  const delta = r.atsScoreAfter - r.atsScoreBefore;
+  const arrow = delta > 0 ? `↑${delta}` : delta < 0 ? `↓${Math.abs(delta)}` : '=';
+  console.log(`  [ATS] Coverage: ${r.atsScoreBefore}% → ${r.atsScoreAfter}% (${arrow})`);
+  if (r.keywordsAdded.length)
+    console.log(`        ✓ Incorporadas: ${r.keywordsAdded.slice(0, 5).join(', ')}`);
+  if (r.keywordsMissingFromCV.length)
+    console.log(`        ✗ Ainda faltando: ${r.keywordsMissingFromCV.slice(0, 3).join(', ')}`);
+}
+
+// Salva currículo otimizado em .vraxia-work/ats-optimized/<jobId>.md para futura geração de PDF
+function saveOptimizedResume(r: ATSOptimizationResult, jobId: string): void {
+  try {
+    const dir = path.resolve(process.cwd(), '.vraxia-work', 'ats-optimized');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, `${jobId}.md`), r.optimizedResumeMd, 'utf-8');
+  } catch { /* non-critical — best effort */ }
+}
+
+// Persiste toda decisão de gate (APPLY/REVIEW/SKIP) em decisions.jsonl.
+// Essa é a fonte de dados para calibração de thresholds e análise de padrões.
+function persistDecision(job: Job, hs: HireScore, twinLabel: string): void {
+  try {
+    const record = {
+      timestamp:           new Date().toISOString(),
+      jobId:               job.id,
+      jobTitle:            job.title,
+      company:             job.company,
+      platform:            job.platform ?? 'unknown',
+      twinId:              hs.twinId,
+      twinLabel,
+      hireScore:           hs.hireScore,
+      interviewProbability: hs.interviewProbability,
+      action:              hs.action,
+      publicationAgeDays:  hs.marketContext.publicationAgeDays,
+      competitionLevel:    hs.marketContext.competitionLevel,
+      dimensions: {
+        technicalFit:   hs.dimensions.technicalFit,
+        seniorityFit:   hs.dimensions.seniorityFit,
+        salaryFit:      hs.dimensions.salaryFit,
+        atsProbability: hs.dimensions.atsProbability,
+      },
+      atsKeywordsFound:    hs.atsKeywordsFound,
+      atsKeywordsMissing:  hs.atsKeywordsMissing,
+      reasoning:           hs.reasoning,
+    };
+    fs.appendFileSync(
+      path.join(path.resolve(process.cwd(), '.vraxia-work'), 'decisions.jsonl'),
+      JSON.stringify(record) + '\n',
+      'utf-8',
+    );
+  } catch { /* non-critical */ }
+}
+
+// Analisa decisions.jsonl ao final da sessão:
+// - gate rate (% que passou para APPLY)
+// - keywords recorrentemente ausentes → sugestões de melhoria dos twins
+// - alerta quando gate rate está fora do range saudável (5–40%)
+function analyzeDecisions(): void {
+  try {
+    const file = path.join(path.resolve(process.cwd(), '.vraxia-work'), 'decisions.jsonl');
+    if (!fs.existsSync(file)) return;
+
+    type D = { action: string; hireScore: number; interviewProbability: number; atsKeywordsMissing?: string[] };
+    const all = fs.readFileSync(file, 'utf-8')
+      .trim().split('\n').filter(Boolean)
+      .map(l => { try { return JSON.parse(l) as D; } catch { return null; } })
+      .filter(Boolean) as D[];
+
+    if (all.length < 5) return;
+
+    const recent  = all.slice(-100);
+    const applied  = recent.filter(d => d.action === 'APPLY').length;
+    const reviewed = recent.filter(d => d.action === 'REVIEW').length;
+    const skipped  = recent.filter(d => d.action === 'SKIP').length;
+    const gateRate = Math.round((applied / recent.length) * 100);
+    const avgHS    = Math.round(recent.reduce((s, d) => s + d.hireScore, 0) / recent.length);
+    const avgIP    = Math.round(recent.reduce((s, d) => s + d.interviewProbability, 0) / recent.length);
+
+    console.log(`\n  [CALIBRAÇÃO] Últimas ${recent.length} decisões: ${applied} APPLY · ${reviewed} REVIEW · ${skipped} SKIP`);
+    console.log(`  Gate rate: ${gateRate}% | HS médio: ${avgHS} | IP médio: ${avgIP}%`);
+
+    if (gateRate < 5 && recent.length >= 15)
+      console.log('  ⚠️  Gate muito restritivo — considere ajustar HIRE_THRESHOLD ou enriquecer twins');
+    else if (gateRate > 40)
+      console.log('  ⚠️  Gate permissivo — monitore interview rate vs quantidade de candidaturas');
+
+    const freq: Record<string, number> = {};
+    for (const d of recent.filter(d => d.action !== 'APPLY')) {
+      for (const kw of d.atsKeywordsMissing ?? []) {
+        freq[kw] = (freq[kw] ?? 0) + 1;
+      }
+    }
+    const topMissing = Object.entries(freq)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .filter(([, c]) => c >= 2);
+
+    if (topMissing.length >= 2) {
+      console.log(`  Keywords recorrentes ausentes: ${topMissing.map(([kw, n]) => `${kw}(×${n})`).join(', ')}`);
+      console.log('  → Adicionar ao twin para aumentar gate rate');
+    }
+  } catch { /* non-critical */ }
+}
+
 // ── Agent bundle ──────────────────────────────────────────────────────────────
 
 interface HuntAgents {
@@ -183,6 +351,7 @@ interface HuntAgents {
   questionnaire: QuestionnaireAgent;
   twinSelector: TwinSelectorAgent;
   hireScoreAgent: HireScoreAgent;
+  atsOptimizer: ATSOptimizerAgent;
   twinsStore: ProfessionalTwinsStore;
 }
 
@@ -204,25 +373,49 @@ async function scoreViaHIE(
   // Select best twin for this job (Haiku — fast and cheap)
   const twins = agents.twinsStore.getAll();
   const selection = await agents.twinSelector.select(job, twins);
-  const selectedTwin = selection.selectedTwin;
 
-  // Compute Interview Probability + Hire Score (Sonnet)
-  const hireScore = await agents.hireScoreAgent.score(job, selectedTwin);
+  // Best-of-2 twin scoring: when TwinSelector confidence < 85 % OR top-2 scores
+  // are within 20 pts, score both twins with HireScoreAgent (Sonnet) and pick highest IP.
+  // +1 Sonnet call on ambiguous jobs; avoids wrong twin selection on mixed-role descriptions.
+  let hireScore: HireScore;
+  let winnerLabel = selection.selectedTwin.label;
+
+  const sortedScores = [...selection.allScores].sort((a, b) => b.score - a.score);
+  const scoreGap     = sortedScores.length >= 2 ? sortedScores[0].score - sortedScores[1].score : 100;
+  const needsBoth    = sortedScores.length >= 2 && (selection.confidence < 85 || scoreGap < 20);
+  const runnerTwin   = needsBoth
+    ? twins.find(t => t.id === sortedScores[1].twinId && t.id !== selection.selectedTwin.id)
+    : undefined;
+
+  if (runnerTwin) {
+    const [s1, s2] = await Promise.all([
+      agents.hireScoreAgent.score(job, selection.selectedTwin),
+      agents.hireScoreAgent.score(job, runnerTwin),
+    ]);
+    if (s2.interviewProbability > s1.interviewProbability) {
+      hireScore   = s2;
+      winnerLabel = runnerTwin.label;
+      console.log(`  [TWIN×2] ${selection.selectedTwin.label}(IP:${s1.interviewProbability}%) < ${runnerTwin.label}(IP:${s2.interviewProbability}%) → ${runnerTwin.label}`);
+    } else {
+      hireScore = s1;
+      console.log(`  [TWIN×2] ${selection.selectedTwin.label}(IP:${s1.interviewProbability}%) ≥ ${runnerTwin.label}(IP:${s2.interviewProbability}%) → ${selection.selectedTwin.label}`);
+    }
+  } else {
+    hireScore = await agents.hireScoreAgent.score(job, selection.selectedTwin);
+  }
+
   agents.twinsStore.saveHireScore(hireScore);
+  persistDecision(job, hireScore, winnerLabel);
 
-  const passedGate = hireScore.hireScore >= HIRE_THRESHOLD;
-  const gateStr = passedGate ? '✅ APPLY' : hireScore.action;
-  console.log(`  [HIE] ${selectedTwin.label} | IP: ${hireScore.interviewProbability}% | HS: ${hireScore.hireScore}/100 → ${gateStr}`);
+  const gateStr = hireScore.action === 'APPLY' ? '✅ APPLY' : hireScore.action;
+  console.log(`  [HIE] ${winnerLabel} | IP: ${hireScore.interviewProbability}% | HS: ${hireScore.hireScore}/100 → ${gateStr}`);
 
-  if (hireScore.keyStrengths.length) {
+  if (hireScore.keyStrengths.length)
     console.log(`        ✓ ${hireScore.keyStrengths.slice(0, 3).join(' · ')}`);
-  }
-  if (hireScore.keyWeaknesses.length) {
+  if (hireScore.keyWeaknesses.length)
     console.log(`        ✗ ${hireScore.keyWeaknesses[0]}`);
-  }
-  if (hireScore.atsKeywordsMissing.length) {
+  if (hireScore.atsKeywordsMissing.length)
     console.log(`        ATS missing: ${hireScore.atsKeywordsMissing.slice(0, 4).join(', ')}`);
-  }
 
   return hireScore;
 }
@@ -266,6 +459,8 @@ async function processJob(
   });
 
   if (hireScore.action !== 'APPLY') {
+    printWhyNot(hireScore);
+    if (hireScore.action === 'REVIEW') printHowToWin(hireScore);
     if (hireScore.action === 'SKIP') {
       tracker.updateState(job.id, 'cancelled', { notes: hireScore.reasoning });
     }
@@ -275,6 +470,19 @@ async function processJob(
 
   tracker.saveExplainability(job.id, hireScore.reasoning, undefined, undefined);
   tracker.updateStatus(job.id, 'applying');
+
+  // ATS keyword optimization — tailors CV emphasis to this specific JD (Sonnet, non-blocking)
+  const _selectedTwinForATS = agents.twinsStore.getById(hireScore.twinId);
+  if (_selectedTwinForATS) {
+    try {
+      const atsResult = await agents.atsOptimizer.optimize(job, _selectedTwinForATS);
+      printATSResult(atsResult);
+      saveOptimizedResume(atsResult, job.id);
+    } catch (e) {
+      console.warn('  [ATS] Otimização falhou — prosseguindo com CV base:', String(e).slice(0, 60));
+    }
+  }
+
   console.log(`  Aplicando${dryRun ? ' (DRY RUN)' : ''}...`);
 
   agents.questionnaire.setJob(job.id, job.title, job.company, job.linkedinUrl);
@@ -370,11 +578,23 @@ async function main() {
     console.warn('[Hunt] Candidate KB não carregada — usando vault RAG:', String(err).slice(0, 80));
   }
 
+  // Ativa CandidateProfileLoader — Single Source of Truth (Camada 0)
+  // Deve ser carregado APÓS o KB para que setProfileVersion() invalide cache corretamente
+  const profileLoader = CandidateProfileLoader.tryLoad(KB_PATH);
+  if (profileLoader) {
+    questionnaire.useProfileLoader(profileLoader);
+    console.log(`[Hunt] SSoT ativo — Profile v${profileLoader.getVersion()} | ${Object.keys(profileLoader.getAllFacts()).length} fatos estruturados\n`);
+  }
+
+  const atsOptimizer   = new ATSOptimizerAgent(process.env.ANTHROPIC_API_KEY);
+  const learningEngine = new LearningEngine(twinsStore);
+
   const agents: HuntAgents = {
     matcher:       new MatchAgent(retriever, twinStore, process.env.ANTHROPIC_API_KEY),
     questionnaire,
     twinSelector,
     hireScoreAgent,
+    atsOptimizer,
     twinsStore,
   };
 
@@ -401,6 +621,7 @@ async function main() {
 
   const resumePath = opts.resume || path.resolve(process.cwd(), 'resume.pdf');
   let totalApplied = 0;
+  const sessionATSStats: Array<{ before: number; after: number; added: number }> = [];
 
   if (platform === 'linkedin' || platform === 'all') {
     console.log('\nLINKEDIN — Buscando vagas (SP + Brasil/Remoto)...');
@@ -417,8 +638,9 @@ async function main() {
     const jobsExternal  = await searchEngine.scrapeJobList(LINKEDIN_CONFIG_EXTERNAL).catch(e => { console.warn('[Hunt] Busca externa falhou:', e); return []; });
 
     const seenIds = new Set<string>();
-    const jobs = [...jobsSPOnsite, ...jobsSP, ...jobsBR, ...jobsExternal].filter(j => { if (seenIds.has(j.id)) return false; seenIds.add(j.id); return true; });
-    console.log(`${jobs.length} vagas únicas encontradas no LinkedIn (SP onsite/híbrido: ${jobsSPOnsite.length}, SP geral: ${jobsSP.length}, BR/Remoto: ${jobsBR.length}, Externa/ATS: ${jobsExternal.length}).\n`);
+    const rawLinkedInJobs = [...jobsSPOnsite, ...jobsSP, ...jobsBR, ...jobsExternal].filter(j => { if (seenIds.has(j.id)) return false; seenIds.add(j.id); return true; });
+    const jobs = sortNewestFirst(rawLinkedInJobs); // newest-first: < 24h tem 4x mais callback
+    console.log(`${jobs.length} vagas únicas encontradas no LinkedIn (SP onsite/híbrido: ${jobsSPOnsite.length}, SP geral: ${jobsSP.length}, BR/Remoto: ${jobsBR.length}, Externa/ATS: ${jobsExternal.length}) — ordenadas por data.\n`);
 
     for (const job of jobs) {
       if (totalApplied >= maxApply) break;
@@ -440,11 +662,30 @@ async function main() {
           continue;
         }
         agents.questionnaire.setAtsSource('greenhouse');
-        const ghOk = await processJob(job, agents, tracker, memory, async (j) => ghEngine.apply(j.externalApplyUrl!, {
-          twin, resumePath, dryRun,
-          onQuestion: async (q) => (await agents.questionnaire.answer(q)).answer,
-          onFieldFilled: (label, value) => agents.questionnaire.logField(label, value),
-        }), dryRun);
+        const ghOk = await processJob(job, agents, tracker, memory, async (j) => {
+          // Cover letter gerada por Sonnet, salva em .vraxia-work/cover-letters/<jobId>.txt
+          try {
+            const clResult = await coverLetter.execute({
+              twin, apiKey: process.env.ANTHROPIC_API_KEY,
+              input: j.description, intent: 'HUNT',
+              jobId: j.id, jobTitle: j.title, company: j.company, jobDescription: j.description,
+            });
+            const letter = (clResult.data as { letter?: string })?.letter ?? '';
+            if (letter) {
+              const clDir = path.resolve(process.cwd(), '.vraxia-work', 'cover-letters');
+              if (!fs.existsSync(clDir)) fs.mkdirSync(clDir, { recursive: true });
+              fs.writeFileSync(path.join(clDir, `${j.id}.txt`), letter, 'utf-8');
+              console.log(`  [CARTA] Gerada para ${j.company} → .vraxia-work/cover-letters/${j.id}.txt`);
+            }
+          } catch (e) {
+            console.warn('  [CARTA] Geração falhou — prosseguindo sem carta:', String(e).slice(0, 60));
+          }
+          return ghEngine.apply(j.externalApplyUrl!, {
+            twin, resumePath, dryRun,
+            onQuestion: async (q) => (await agents.questionnaire.answer(q)).answer,
+            onFieldFilled: (label, value) => agents.questionnaire.logField(label, value),
+          });
+        }, dryRun);
         if (ghOk) { totalApplied++; await new Promise(r => setTimeout(r, 4000 + Math.random() * 6000)); }
         continue;
       }
@@ -478,6 +719,8 @@ async function main() {
       });
 
       if (hireScore.action !== 'APPLY') {
+        printWhyNot(hireScore);
+        if (hireScore.action === 'REVIEW') printHowToWin(hireScore);
         tracker.updateState(job.id, hireScore.action === 'SKIP' ? 'cancelled' : 'queued', {
           notes: hireScore.reasoning,
           reasonApply: undefined,
@@ -489,6 +732,20 @@ async function main() {
 
       tracker.saveExplainability(job.id, hireScore.reasoning, undefined, undefined);
       tracker.updateState(job.id, 'starting');
+
+      // ATS optimization — call before submit, log delta, save optimized MD
+      const _linkedInTwin = agents.twinsStore.getById(hireScore.twinId);
+      if (_linkedInTwin) {
+        try {
+          const atsResult = await agents.atsOptimizer.optimize(job, _linkedInTwin);
+          printATSResult(atsResult);
+          saveOptimizedResume(atsResult, job.id);
+          sessionATSStats.push({ before: atsResult.atsScoreBefore, after: atsResult.atsScoreAfter, added: atsResult.keywordsAdded.length });
+        } catch (e) {
+          console.warn('  [ATS] Otimização falhou — prosseguindo com CV base:', String(e).slice(0, 60));
+        }
+      }
+
       console.log(`  Candidatando${dryRun ? ' (DRY RUN)' : ''}...`);
 
       agents.questionnaire.setJob(job.id, job.title, job.company, job.linkedinUrl);
@@ -526,8 +783,8 @@ async function main() {
     const gupyApply = new GupyApplyEngine(page);
 
     // API HTTP (primary — evita Cloudflare/bot-detection dos subdomínios)
-    const uniqueJobs = await gupySearch.searchViaAPI(GUPY_CONFIG);
-    console.log(`${uniqueJobs.length} vagas encontradas no Gupy.\n`);
+    const uniqueJobs = sortNewestFirst(await gupySearch.searchViaAPI(GUPY_CONFIG));
+    console.log(`${uniqueJobs.length} vagas encontradas no Gupy (ordenadas por data).\n`);
 
     for (const job of uniqueJobs) {
       if (totalApplied >= maxApply) break;
@@ -563,8 +820,8 @@ async function main() {
       const jobsRemote = await cathoSearch.searchJobs(CATHO_CONFIG_REMOTE).catch(e => { console.warn('[Catho] Busca remoto falhou:', e); return [] as CathoJob[]; });
 
       const seenCatho = new Set<string>();
-      const cathoJobs = [...jobsSP, ...jobsRemote].filter(j => { if (seenCatho.has(j.id)) return false; seenCatho.add(j.id); return true; });
-      console.log(`${cathoJobs.length} vagas únicas encontradas no Catho (SP: ${jobsSP.length}, Remoto: ${jobsRemote.length}).\n`);
+      const cathoJobs = sortNewestFirst([...jobsSP, ...jobsRemote].filter(j => { if (seenCatho.has(j.id)) return false; seenCatho.add(j.id); return true; }));
+      console.log(`${cathoJobs.length} vagas únicas encontradas no Catho (SP: ${jobsSP.length}, Remoto: ${jobsRemote.length}) — ordenadas por data.\n`);
 
       for (const job of cathoJobs) {
         if (totalApplied >= maxApply) break;
@@ -604,6 +861,34 @@ async function main() {
     const gateRate = Math.round((hieApplied / hieTotal) * 100);
     console.log(`  HIE gate rate: ${gateRate}% passed (threshold: HS >= ${HIRE_THRESHOLD})`);
   }
+  if (sessionATSStats.length > 0) {
+    const avgBefore = Math.round(sessionATSStats.reduce((s, x) => s + x.before, 0) / sessionATSStats.length);
+    const avgAfter  = Math.round(sessionATSStats.reduce((s, x) => s + x.after,  0) / sessionATSStats.length);
+    const avgAdded  = Math.round(sessionATSStats.reduce((s, x) => s + x.added,  0) / sessionATSStats.length);
+    console.log(`  ATS coverage médio: ${avgBefore}% → ${avgAfter}% (+${avgAdded} keywords/candidatura)`);
+  }
+
+  // LearningEngine — interview rate by twin/stack (shows only when patterns exist with >= 3 apps)
+  try {
+    const insights = learningEngine.getInsightsSummary();
+    const activeTwins = insights.topTwins.filter(t => t.totalApplications >= 3);
+    if (activeTwins.length > 0) {
+      const overallPct = Math.round(insights.overallInterviewRate * 100);
+      console.log(`  Interview Rate acumulado: ${overallPct}%`);
+      console.log('  Performance por twin:');
+      for (const t of activeTwins) {
+        const ir = Math.round(t.interviewRate * 100);
+        console.log(`    ${t.patternKey}: ${ir}% IR · ${t.interviews}/${t.totalApplications} interviews`);
+      }
+      const topStack = insights.topStacks.filter(s => s.totalApplications >= 2 && s.interviewRate > 0).slice(0, 3);
+      if (topStack.length) {
+        console.log('  Top stacks com entrevista: ' + topStack.map(s => `${s.patternKey} (${Math.round(s.interviewRate * 100)}%)`).join(', '));
+      }
+    }
+  } catch { /* non-critical */ }
+
+  analyzeDecisions();
+
   console.log('─────────────────────────────────\n');
 
   await deployDashboard(); // sempre — dry-run ou não

@@ -248,6 +248,30 @@
       .kpi-grid{grid-template-columns:repeat(2,1fr)!important;}
       .chart-box{height:150px;}
     }
+
+    /* ── Phase 2: Opportunity Feed & Radar ─────────────────────────────── */
+    .opp-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:16px 18px;transition:border-color .2s,transform .15s;margin-bottom:10px;}
+    .opp-card:hover{border-color:rgba(96,165,250,.2);transform:translateY(-1px);}
+    .opp-card.action-apply{border-left:3px solid #22c55e;}
+    .opp-card.action-review{border-left:3px solid #fbbf24;}
+    .opp-card.action-skip{border-left:3px solid #4b5563;}
+    .cds-row{display:flex;align-items:center;gap:6px;margin-bottom:3px;}
+    .cds-label{font-size:10px;color:#6b7280;width:72px;flex-shrink:0;}
+    .cds-bar{flex:1;height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;}
+    .cds-fill{height:100%;border-radius:2px;transition:width .5s ease;}
+    .cds-val{font-size:10px;font-family:'JetBrains Mono',monospace;width:26px;text-align:right;flex-shrink:0;}
+    .radar-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+    .radar-row:last-child{border-bottom:none;}
+    .radar-bar{flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;}
+    .radar-fill{height:100%;border-radius:3px;transition:width .6s ease;}
+    .radar-num{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#fff;min-width:44px;text-align:right;}
+    /* WHY NOT / HOW TO WIN modals */
+    #whynot-modal,#howtowin-modal{display:none;position:fixed;inset:0;z-index:1003;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);align-items:center;justify-content:center;}
+    #whynot-modal.open,#howtowin-modal.open{display:flex;}
+    .wn-box{background:#0a0e1a;border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:26px;max-width:600px;width:90%;max-height:84vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.8);}
+    .wn-title{font-size:15px;font-weight:700;color:#fff;margin-bottom:16px;}
+    /* Feed filter buttons reuse mkt-filter-btn */
+    .feed-filter-btn.active{background:rgba(167,139,250,.12);border-color:rgba(167,139,250,.3);color:#c4b5fd;}
   </style>
 </head>
 <body class="h-full overflow-hidden">
@@ -300,7 +324,15 @@
 
     <!-- Nav -->
     <nav class="flex-1 py-3">
-      <div class="px-4 mb-2 text-xs text-gray-700 uppercase tracking-wider font-semibold">Dashboard</div>
+      <div class="px-4 mb-2 text-xs text-gray-700 uppercase tracking-wider font-semibold">Career Engine</div>
+      <div class="nav-item" id="nav-radar" onclick="navTo('sec-radar')">
+        <i data-lucide="radar" style="width:15px;height:15px"></i> Radar
+      </div>
+      <div class="nav-item" id="nav-feed" onclick="navTo('sec-feed')">
+        <i data-lucide="zap" style="width:15px;height:15px"></i> Opportunity Feed
+      </div>
+
+      <div class="px-4 mt-4 mb-2 text-xs text-gray-700 uppercase tracking-wider font-semibold">Dashboard</div>
 
       <div class="nav-item" id="nav-home" onclick="navTo('sec-home')">
         <i data-lucide="home" style="width:15px;height:15px"></i> Home
@@ -425,7 +457,7 @@
         </div>
         <div class="glass rounded-xl p-4 text-center">
           <div class="text-2xl font-bold text-purple-400 font-mono" id="home-match">—</div>
-          <div class="text-xs text-gray-500 mt-1">Vagas +90% Match</div>
+          <div class="text-xs text-gray-500 mt-1">Vagas IP ≥ 90%</div>
         </div>
       </div>
 
@@ -443,6 +475,45 @@
         <button onclick="navTo('sec-analytics')" class="btn btn-ghost">
           <i data-lucide="bar-chart-2" style="width:14px;height:14px"></i> Ver analytics
         </button>
+      </div>
+
+      <!-- Top Opportunities of the Day -->
+      <div class="mt-5 pt-5" style="border-top:1px solid rgba(255,255,255,.05);">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-xs font-mono text-gray-500 uppercase tracking-widest flex items-center gap-2">
+            <i data-lucide="trending-up" style="width:12px;height:12px;color:#22c55e"></i>
+            Top Oportunidades — Alta Probabilidade
+          </div>
+          <button onclick="navTo('sec-feed')" class="text-xs text-blue-400 hover:text-blue-300 transition">Ver todas →</button>
+        </div>
+        <div id="top-ops-list">
+          <div class="empty-state py-3 text-xs"><span class="spinner"></span> Carregando...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SECTION: OPPORTUNITY RADAR ──────────────────────────────────────── -->
+    <div id="sec-radar" class="px-8 py-6 border-b border-white/5">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="live-dot" style="background:#22d3ee;box-shadow:0 0 6px rgba(34,211,238,.7)"></span>
+        <span class="text-xs font-mono text-gray-400 uppercase tracking-widest">Opportunity Radar — Pipeline de Inteligência</span>
+        <button onclick="loadOpportunityRadar()" class="ml-auto text-xs text-gray-600 hover:text-gray-400 transition">↻ refresh</button>
+      </div>
+      <p class="text-xs text-gray-600 mb-5">Como o sistema transformou vagas brutas em oportunidades qualificadas. Cada etapa é uma decisão de inteligência.</p>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="glass rounded-xl p-5">
+          <div class="text-xs text-gray-500 uppercase tracking-wide mb-4 font-semibold">Pipeline de Decisão</div>
+          <div id="radar-pipeline">
+            <div class="empty-state py-4"><span class="spinner"></span></div>
+          </div>
+        </div>
+        <div class="glass rounded-xl p-5">
+          <div class="text-xs text-gray-500 uppercase tracking-wide mb-4 font-semibold">Intelligence Summary</div>
+          <div id="radar-summary">
+            <div class="empty-state py-4"><span class="spinner"></span></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -580,7 +651,7 @@
                 <th>Cargo</th>
                 <th>Plataforma</th>
                 <th>Modalidade</th>
-                <th>Score</th>
+                <th title="Interview Probability — P(entrevista) calculado pelo HireScore Engine&#10;APPLY ≥90% | REVIEW ≥75% | SKIP &lt;75%&#10;Fallback para Match Score se Hire Score indisponível" style="cursor:help;">Hiring Prob ⓘ</th>
                 <th>Status</th>
                 <th>Ação</th>
               </tr>
@@ -632,6 +703,27 @@
           <div class="text-xs text-gray-500 uppercase tracking-wide mb-3 font-semibold">Candidaturas Acumuladas</div>
           <div class="chart-box"><canvas id="chart-cumulative"></canvas></div>
         </div>
+      </div>
+    </div>
+
+    <!-- ── SECTION: OPPORTUNITY FEED ────────────────────────────────────────── -->
+    <div id="sec-feed" class="px-8 py-6 border-b border-white/5">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="live-dot" style="background:#a78bfa;box-shadow:0 0 6px rgba(167,139,250,.7)"></span>
+        <span class="text-xs font-mono text-gray-400 uppercase tracking-widest">Opportunity Feed — Career Decision Score</span>
+        <span id="feed-count" class="ml-2 text-xs text-gray-600 font-mono"></span>
+        <button onclick="loadOpportunityFeed()" class="ml-auto text-xs text-gray-600 hover:text-gray-400 transition">↻ refresh</button>
+      </div>
+
+      <div class="flex gap-2 mb-5 flex-wrap">
+        <button onclick="setFeedFilter('all')"    class="feed-filter-btn mkt-filter-btn active" data-f="all">Todas</button>
+        <button onclick="setFeedFilter('APPLY')"  class="feed-filter-btn mkt-filter-btn" data-f="APPLY">✅ APPLY</button>
+        <button onclick="setFeedFilter('REVIEW')" class="feed-filter-btn mkt-filter-btn" data-f="REVIEW">🔍 REVIEW</button>
+        <button onclick="setFeedFilter('SKIP')"   class="feed-filter-btn mkt-filter-btn" data-f="SKIP">⛔ SKIP</button>
+      </div>
+
+      <div id="feed-list">
+        <div class="empty-state py-10"><span class="spinner"></span> Carregando feed...</div>
       </div>
     </div>
 
@@ -1234,6 +1326,32 @@
   </div>
 </div>
 
+<!-- ══ WHY NOT MODAL ════════════════════════════════════════════════════════ -->
+<div id="whynot-modal" onclick="if(event.target===this)closeWhyNot()">
+  <div class="wn-box">
+    <div class="flex items-center justify-between mb-4">
+      <div class="wn-title" id="wn-title">Por que esta vaga não passou?</div>
+      <button onclick="closeWhyNot()" style="background:none;border:none;color:#6b7280;font-size:20px;cursor:pointer;line-height:1;">×</button>
+    </div>
+    <div id="wn-content">
+      <div class="empty-state py-4"><span class="spinner"></span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ HOW TO WIN MODAL ══════════════════════════════════════════════════════ -->
+<div id="howtowin-modal" onclick="if(event.target===this)closeHowToWin()">
+  <div class="wn-box">
+    <div class="flex items-center justify-between mb-4">
+      <div class="wn-title" id="htw-title">Como aumentar suas chances?</div>
+      <button onclick="closeHowToWin()" style="background:none;border:none;color:#6b7280;font-size:20px;cursor:pointer;line-height:1;">×</button>
+    </div>
+    <div id="htw-content">
+      <div class="empty-state py-4"><span class="spinner"></span></div>
+    </div>
+  </div>
+</div>
+
 <!-- ══ CHAT FOOTER ══════════════════════════════════════════════════════════ -->
 <div id="chat-footer">
   <div style="font-size:11px;color:#4b5563;white-space:nowrap;font-family:'JetBrains Mono',monospace;">⚡ Career OS</div>
@@ -1315,6 +1433,9 @@ let charts = {};
 let selectedPlatform = 'linkedin';
 let huntPolling = null;
 let searchTimer = null;
+// Hire Score cache — populated by refreshHireScoreMap(), keyed by job_id
+// Used by renderAppRows, openExplain, and (future) openWhyNot / openHowToWin
+let _hireScoreMap = {};
 
 // ══ HELPERS ══════════════════════════════════════════════════════════════════
 const $ = id => document.getElementById(id);
@@ -1325,15 +1446,20 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
 }
 
-function fmtDateShort(iso) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
-}
 
-function scoreBadge(score) {
-  const n = Number(score ?? 0);
-  const cls = n >= 75 ? 'score-high' : n >= 50 ? 'score-mid' : 'score-low';
-  return `<span class="${cls}">${n}/100</span>`;
+// ip = interview_probability (novo), action = APPLY|REVIEW|SKIP, legacy = score_total (fallback)
+function scoreBadge(ip, action, legacy) {
+  const isNew = ip != null;
+  const val   = isNew ? ip : (legacy ?? 0);
+  const n     = Number(val);
+  const cls   = isNew
+    ? (n >= 90 ? 'score-high' : n >= 75 ? 'score-mid' : 'score-low')
+    : (n >= 75 ? 'score-high' : n >= 50 ? 'score-mid' : 'score-low');
+  const tooltip = isNew
+    ? `Interview Probability: ${n}%\nGate: APPLY ≥90 | REVIEW ≥75 | SKIP <75\nDecisão: ${action ?? 'SKIP'}`
+    : `Match Score (legado): ${n}/100\nHire Score ainda não calculado para esta vaga`;
+  const label = isNew ? `IP ${n}%` : `${n}/100`;
+  return `<span class="${cls}" title="${tooltip}" style="cursor:help;">${label}</span>`;
 }
 
 function statusBadge(status) {
@@ -1410,6 +1536,8 @@ function closeSidebar() {
 
 // ══ SCROLL NAV ═══════════════════════════════════════════════════════════════
 const SEC_TO_NAV = {
+  'sec-radar':         'nav-radar',
+  'sec-feed':          'nav-feed',
   'sec-home':          'nav-home',
   'sec-kpis':          'nav-kpis',
   'sec-table':         'nav-table',
@@ -1457,7 +1585,7 @@ async function refreshStats() {
     $('kpi-applied').textContent = d.totalApplied ?? 0;
     $('kpi-rate').textContent    = ((d.filterRate ?? 0) * 100).toFixed(1) + '%';
     $('kpi-cost').textContent    = '$' + (d.estimatedCostUsd ?? 0).toFixed(4);
-    $('kpi-lastrun').textContent = fmtDateShort(d.lastRun);
+    $('kpi-lastrun').textContent = fmtDate(d.lastRun);
     $('kpi-remote').textContent  = d.remoteCount ?? 0;
     $('kpi-onsite').textContent  = d.onsiteCount ?? 0;
     $('live-scanned').textContent = d.totalScanned ?? '—';
@@ -1482,14 +1610,23 @@ let _allAppRows = [];
 const APPS_PAGE_SIZE = 10;
 
 function renderAppRows(rows) {
-  return rows.map(row => `
-    <tr>
+  return rows.map(row => {
+    // Hire Score lookup — falls back to legacy score_total if not yet scored
+    const hs = _hireScoreMap[row.id];
+    const scoreCell = scoreBadge(
+      hs?.interview_probability ?? null,
+      hs?.action ?? null,
+      row.score_total,
+    );
+    // data-job-id is used by Phase 3 (WHY NOT) and Phase 4 (HOW TO WIN) buttons
+    return `
+    <tr data-job-id="${esc(row.id)}">
       <td class="text-gray-500 text-xs font-mono whitespace-nowrap">${fmtDate(row.updated_at)}</td>
       <td class="text-white font-semibold max-w-[140px] truncate">${esc(row.company)}</td>
       <td class="text-gray-300 max-w-[200px] truncate text-xs">${esc(row.job_title)}</td>
       <td>${platformBadge(row.platform)}</td>
       <td>${modalityBadge(row.modality)}</td>
-      <td>${scoreBadge(row.score_total)}</td>
+      <td>${scoreCell}</td>
       <td>${statusBadge(row.status)}</td>
       <td style="white-space:nowrap;display:flex;gap:4px;align-items:center;">
         ${row.linkedin_url
@@ -1497,14 +1634,14 @@ function renderAppRows(rows) {
           : ''
         }
         <button onclick="openAudit('${esc(row.id)}','${esc(row.company)}','${esc(row.job_title)}')" class="btn btn-ghost text-xs px-2 py-1.5" title="Auditoria Truth Engine" style="color:#a78bfa;">🔍</button>
-        <button onclick="openExplain('${esc(row.id)}','${esc(row.company)}','${esc(row.job_title)}')" class="btn btn-ghost text-xs px-2 py-1.5" title="Por que esta decisão?">❓</button>
+        <button onclick="openExplain('${esc(row.id)}','${esc(row.company)}','${esc(row.job_title)}')" class="btn btn-ghost text-xs px-2 py-1.5" title="Por que esta decisão? (WHY NOT — Fase 3 expande este painel)">❓</button>
         <button onclick="openATS('${esc(row.id)}','${esc(row.job_title)}')" class="btn btn-ghost text-xs px-2 py-1.5" title="Analisar ATS">📊</button>
         <button onclick="openResume('${esc(row.id)}','${esc(row.company)}','${esc(row.job_title)}')" class="btn btn-ghost text-xs px-2 py-1.5" title="Gerar CV adaptado">📄</button>
         <button onclick="openInterview('${esc(row.id)}','${esc(row.company)}','${esc(row.job_title)}')" class="btn btn-ghost text-xs px-2 py-1.5" title="Treinar entrevista">🎓</button>
         <button onclick="openSalary('${esc(row.id)}','${esc(row.company)}','${esc(row.job_title)}')" class="btn btn-ghost text-xs px-2 py-1.5" title="Conselho salarial">💰</button>
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 }
 
 function showAllApps() {
@@ -2106,13 +2243,33 @@ async function checkConnection() {
   return false;
 }
 
+// ══ HIRE SCORE MAP ════════════════════════════════════════════════════════════
+// Populates _hireScoreMap from /api/work/opportunity-scores (all scored jobs).
+// Called at init and in refreshAll so renderAppRows and openExplain always have fresh data.
+async function refreshHireScoreMap() {
+  try {
+    const r = await fetch(`${API}/api/work/opportunity-scores?limit=500`,
+      { signal: AbortSignal.timeout(6000) });
+    if (!r.ok) return;
+    const data = await r.json();
+    _hireScoreMap = {};
+    data.forEach(h => { _hireScoreMap[h.job_id] = h; });
+  } catch {
+    // Silent fail — renderAppRows falls back to legacy score_total
+  }
+}
+
 // ══ MAIN REFRESH ═════════════════════════════════════════════════════════════
 async function refreshAll() {
+  await refreshHireScoreMap();
   await refreshStats();
   await loadApplications();
   await loadCharts();
   await loadQuestionnaire();
   await loadTruth();
+  await loadOpportunityRadar();
+  await loadTopOpportunities();
+  loadOpportunityFeed(); // non-blocking — reads only from _hireScoreMap
 }
 
 // ══ INIT ═════════════════════════════════════════════════════════════════════
@@ -2185,7 +2342,7 @@ async function init() {
       if (huntActive && !huntPolling) {
         setHuntRunning(true, d.huntPid);
         startHuntPolling();
-      } else if (!huntActive && huntPolling && !(huntProcess)) {
+      } else if (!huntActive && huntPolling) {
         setHuntRunning(false, null);
         stopHuntPolling();
       }
@@ -2193,7 +2350,10 @@ async function init() {
       // Refresh parcial quando DB mudou
       if (d.dbMtime > _lastMtime) {
         _lastMtime = d.dbMtime;
-        await Promise.allSettled([refreshStats(), loadApplications(), loadTruth()]);
+        await Promise.allSettled([refreshHireScoreMap(), refreshStats(), loadApplications(), loadTruth()]);
+        loadOpportunityRadar();
+        loadTopOpportunities();
+        loadOpportunityFeed();
         const charts = document.getElementById('sec-charts');
         if (charts && charts.getBoundingClientRect().top < window.innerHeight) loadCharts();
       }
@@ -2213,6 +2373,489 @@ async function init() {
   }
   checkDbMtime().then(scheduleDbMtime); // roda imediatamente no load
 }
+
+// ══ OPPORTUNITY RADAR ════════════════════════════════════════════════════════
+async function loadOpportunityRadar() {
+  const pipeEl    = $('radar-pipeline');
+  const summaryEl = $('radar-summary');
+  if (!pipeEl) return;
+
+  try {
+    const r     = await fetch(`${API}/api/work/stats`, { signal: AbortSignal.timeout(5000) });
+    const stats = await r.json();
+
+    const totalScanned = stats.totalScanned ?? 0;
+    const totalApplied = stats.totalApplied ?? 0;
+    const byStatus     = stats.byStatus     ?? {};
+    const interviews   = byStatus.interview ?? 0;
+    const offers       = (byStatus.offer ?? 0) + (byStatus.hired ?? 0);
+
+    const allHS    = Object.values(_hireScoreMap);
+    const analyzed = allHS.length;
+    const qualified = allHS.filter(h => (h.interview_probability ?? 0) >= 75).length;
+    const highProb  = allHS.filter(h => (h.interview_probability ?? 0) >= 90).length;
+    const eliminated = (byStatus.filtered_out ?? 0) + (byStatus.scanned ?? 0);
+
+    const stages = [
+      { label: 'Vagas Encontradas',     val: totalScanned, color: '#60a5fa', desc: 'Detectadas pelo Hunt' },
+      { label: 'Eliminadas (IA)',        val: eliminated,   color: '#ef4444', desc: 'Não passaram no pré-filtro' },
+      { label: 'Analisadas (HireScore)', val: analyzed,     color: '#a78bfa', desc: 'Tiveram Hire Score calculado' },
+      { label: 'Qualificadas ≥75%',      val: qualified,    color: '#fbbf24', desc: 'Interview Probability ≥ 75' },
+      { label: 'Alta Prob ≥90%',         val: highProb,     color: '#22d3ee', desc: 'Gate APPLY — candidatar agora' },
+      { label: 'Aplicadas',             val: totalApplied,  color: '#22c55e', desc: 'Candidaturas enviadas' },
+      { label: 'Entrevistas',           val: interviews,    color: '#4ade80', desc: 'Retornos positivos' },
+      { label: 'Propostas / Hired',     val: offers,        color: '#86efac', desc: 'Ofertas recebidas' },
+    ];
+
+    const max = Math.max(...stages.map(s => s.val), 1);
+    pipeEl.innerHTML = stages.map(s => {
+      const pct       = Math.round((s.val / max) * 100);
+      const funnelPct = totalScanned > 0 ? ((s.val / totalScanned) * 100).toFixed(1) : '0.0';
+      return `
+        <div class="radar-row" title="${esc(s.desc)}">
+          <div style="min-width:168px;font-size:11px;color:#9ca3af;">${s.label}</div>
+          <div class="radar-bar"><div class="radar-fill" style="width:${pct}%;background:${s.color};"></div></div>
+          <div class="radar-num">${s.val}</div>
+          <div style="font-size:10px;color:#4b5563;min-width:42px;text-align:right;">${funnelPct}%</div>
+        </div>`;
+    }).join('');
+
+    // Intelligence summary
+    const convRate  = totalScanned > 0 ? ((totalApplied / totalScanned) * 100).toFixed(1) : '0.0';
+    const intRate   = totalApplied > 0 ? ((interviews / totalApplied) * 100).toFixed(1)   : '0.0';
+    const elimRate  = totalScanned > 0 ? ((eliminated  / totalScanned) * 100).toFixed(1)  : '0.0';
+    const avgIP     = analyzed > 0
+      ? Math.round(allHS.reduce((s, h) => s + (h.interview_probability ?? 0), 0) / analyzed)
+      : 0;
+
+    if (summaryEl) {
+      summaryEl.innerHTML = `
+        <div class="space-y-3">
+          <div class="glass rounded-xl p-4" style="border-left:3px solid #ef4444;">
+            <div style="font-size:20px;font-weight:900;font-family:'JetBrains Mono',monospace;color:#ef4444;">${elimRate}%</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px;">vagas eliminadas automaticamente — você não perdeu tempo com elas</div>
+          </div>
+          <div class="glass rounded-xl p-4" style="border-left:3px solid #22d3ee;">
+            <div style="font-size:20px;font-weight:900;font-family:'JetBrains Mono',monospace;color:#22d3ee;">${avgIP}%</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px;">Interview Probability média das vagas analisadas</div>
+          </div>
+          <div class="glass rounded-xl p-4" style="border-left:3px solid #22c55e;">
+            <div style="font-size:20px;font-weight:900;font-family:'JetBrains Mono',monospace;color:#22c55e;">${intRate}%</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px;">taxa de entrevistas sobre candidaturas enviadas</div>
+          </div>
+          <div style="text-align:center;padding:10px 0;font-size:11px;color:#4b5563;">
+            De <strong style="color:#9ca3af;">${totalScanned}</strong> vagas encontradas →
+            <strong style="color:#22d3ee;">${highProb}</strong> com alta prob →
+            <strong style="color:#22c55e;">${totalApplied}</strong> aplicadas →
+            <strong style="color:#4ade80;">${interviews}</strong> entrevistas
+          </div>
+        </div>`;
+    }
+  } catch (e) {
+    if (pipeEl) pipeEl.innerHTML = '<div class="empty-state text-red-400 py-4 text-xs">Erro ao carregar radar — API offline?</div>';
+  }
+}
+
+// ══ TOP OPPORTUNITIES ═════════════════════════════════════════════════════════
+async function loadTopOpportunities() {
+  const el = $('top-ops-list');
+  if (!el) return;
+
+  const allHS = Object.values(_hireScoreMap);
+  const topOps = allHS
+    .filter(h => h.action === 'APPLY')
+    .sort((a, b) => (b.interview_probability ?? 0) - (a.interview_probability ?? 0))
+    .slice(0, 3);
+
+  if (!topOps.length) {
+    el.innerHTML = `<div style="font-size:12px;color:#4b5563;padding:12px 0;">
+      Sem vagas com APPLY no momento — execute o Hunt para analisar novas vagas.
+    </div>`;
+    return;
+  }
+
+  const allIPs = allHS.map(h => h.interview_probability ?? 0).sort((a, b) => b - a);
+
+  el.innerHTML = topOps.map(h => {
+    const ip    = h.interview_probability ?? 0;
+    const ipCol = ip >= 90 ? '#22c55e' : '#fbbf24';
+    const rank  = allIPs.indexOf(ip) + 1;
+    const total = allIPs.length;
+    const pct   = total > 0 ? ((rank / total) * 100) : 100;
+    const rankLabel = pct <= 1 ? 'Top 1%' : pct <= 5 ? 'Top 5%' : pct <= 10 ? 'Top 10%' : `#${rank}`;
+
+    return `
+      <div class="glass rounded-xl p-4 card-hover flex items-center gap-4 mb-2">
+        <div style="text-align:center;flex-shrink:0;width:52px;">
+          <div style="font-size:20px;font-weight:900;font-family:'JetBrains Mono',monospace;color:${ipCol};line-height:1;">${ip}%</div>
+          <div style="font-size:9px;color:#4b5563;margin-top:1px;">IP</div>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(h.job_title)}</div>
+          <div style="font-size:11px;color:#6b7280;margin-top:2px;">${esc(h.company)} · ${h.publication_age_days ?? '?'}d atrás</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;">
+          <span class="badge badge-cyan" style="font-size:9px;">${esc(rankLabel)}</span>
+          <div style="display:flex;gap:4px;">
+            <button onclick="openWhyNot('${esc(h.job_id)}','${esc(h.company)}','${esc(h.job_title)}')" class="btn btn-ghost text-xs px-2 py-1" style="font-size:10px;">❓</button>
+            <button onclick="openHowToWin('${esc(h.job_id)}','${esc(h.company)}','${esc(h.job_title)}')" class="btn btn-ghost text-xs px-2 py-1" style="font-size:10px;color:#86efac;">🎯</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+  lucide.createIcons();
+}
+
+// ══ OPPORTUNITY FEED ══════════════════════════════════════════════════════════
+let _feedFilter = 'all';
+let _feedData   = [];
+
+function setFeedFilter(f) {
+  _feedFilter = f;
+  _feedExpanded = false;
+  document.querySelectorAll('.feed-filter-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.f === f));
+  renderOpportunityFeed();
+}
+
+function renderOpportunityFeed() {
+  const el = $('feed-list');
+  if (!el) return;
+
+  const allHS  = Object.values(_hireScoreMap);
+  const allIPs = allHS.map(h => h.interview_probability ?? 0).sort((a, b) => b - a);
+
+  let data = _feedFilter === 'all'
+    ? allHS
+    : allHS.filter(h => h.action === _feedFilter);
+
+  data = data.sort((a, b) => (b.interview_probability ?? 0) - (a.interview_probability ?? 0));
+  $('feed-count').textContent = `(${data.length})`;
+
+  if (!data.length) {
+    el.innerHTML = `<div class="empty-state py-10">Nenhuma oportunidade encontrada. Execute o Hunt para analisar vagas.</div>`;
+    return;
+  }
+
+  const limit   = _feedExpanded ? data.length : 25;
+  const visible = data.slice(0, limit);
+
+  el.innerHTML = visible.map(h => {
+    const ip  = h.interview_probability ?? 0;
+    const ats = h.ats_probability       ?? 0;
+    const tf  = h.technical_fit         ?? 0;
+    const oq  = h.opportunityQuality    ?? 0;
+    const roi = h.roiScore              ?? 0;
+
+    const ipCol  = ip >= 90 ? '#22c55e' : ip >= 75 ? '#fbbf24' : '#ef4444';
+    const actCls = h.action === 'APPLY' ? 'action-apply' : h.action === 'REVIEW' ? 'action-review' : 'action-skip';
+    const actBadge = h.action === 'APPLY'
+      ? '<span class="badge badge-green" style="font-size:9px;">APPLY</span>'
+      : h.action === 'REVIEW'
+      ? '<span class="badge badge-yellow" style="font-size:9px;">REVIEW</span>'
+      : '<span class="badge badge-gray" style="font-size:9px;">SKIP</span>';
+
+    const rank  = allIPs.indexOf(ip) + 1;
+    const total = allIPs.length;
+    const pct   = total > 0 ? ((rank / total) * 100) : 100;
+    const rankLabel = pct <= 1 ? 'Top 1%' : pct <= 5 ? 'Top 5%' : pct <= 10 ? 'Top 10%' : `#${rank}`;
+
+    const kwFound = Array.isArray(h.atsKeywordsFound) ? h.atsKeywordsFound.slice(0, 3) : [];
+
+    const cds = [
+      { label: 'Hiring Prob', val: ip,  col: ipCol },
+      { label: 'ATS Prob',    val: ats, col: ats >= 80 ? '#22c55e' : ats >= 60 ? '#fbbf24' : '#ef4444' },
+      { label: 'Tech Fit',    val: tf,  col: tf  >= 80 ? '#22c55e' : tf  >= 60 ? '#fbbf24' : '#ef4444' },
+      { label: 'Opp Quality', val: oq,  col: oq  >= 70 ? '#22c55e' : oq  >= 50 ? '#fbbf24' : '#ef4444' },
+      { label: 'ROI Score',   val: roi, col: roi >= 70 ? '#22c55e' : roi >= 50 ? '#fbbf24' : '#ef4444' },
+    ];
+
+    return `
+      <div class="opp-card ${actCls}">
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <div style="flex-shrink:0;text-align:center;width:54px;">
+            <div style="font-size:21px;font-weight:900;font-family:'JetBrains Mono',monospace;color:${ipCol};line-height:1;">${ip}%</div>
+            <div style="font-size:9px;color:#4b5563;margin-top:1px;">IP</div>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:3px;">
+              ${actBadge}
+              <span class="badge badge-gray" style="font-size:9px;">${esc(rankLabel)}</span>
+              ${h.publication_age_days != null
+                ? `<span style="font-size:10px;color:#4b5563;">${h.publication_age_days}d</span>` : ''}
+              ${platformBadge(h.platform ?? '')}
+            </div>
+            <div style="font-size:14px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(h.job_title)}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:1px;">${esc(h.company)}</div>
+            ${kwFound.length
+              ? `<div style="margin-top:5px;">${kwFound.map(k =>
+                  `<span class="badge badge-blue" style="margin:1px 1px 0 0;font-size:9px;">${esc(k)}</span>`
+                ).join('')}</div>`
+              : ''}
+          </div>
+          <div style="flex-shrink:0;min-width:118px;">
+            ${cds.map(d => `
+              <div class="cds-row">
+                <span class="cds-label">${d.label}</span>
+                <div class="cds-bar"><div class="cds-fill" style="width:${d.val}%;background:${d.col};"></div></div>
+                <span class="cds-val" style="color:${d.col};">${d.val}</span>
+              </div>`).join('')}
+          </div>
+        </div>
+        <div style="display:flex;gap:5px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap;">
+          <button onclick="openWhyNot('${esc(h.job_id)}','${esc(h.company)}','${esc(h.job_title)}')"
+            class="btn btn-ghost text-xs px-3 py-1.5" style="font-size:11px;">❓ WHY NOT</button>
+          <button onclick="openHowToWin('${esc(h.job_id)}','${esc(h.company)}','${esc(h.job_title)}')"
+            class="btn btn-ghost text-xs px-3 py-1.5" style="font-size:11px;color:#86efac;">🎯 HOW TO WIN</button>
+          ${h.linkedin_url
+            ? `<a href="${esc(h.linkedin_url)}" target="_blank"
+                class="btn btn-secondary text-xs px-3 py-1.5" style="font-size:11px;">Ver vaga ↗</a>`
+            : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  if (!_feedExpanded && data.length > 25) {
+    el.innerHTML += `
+      <div class="text-center mt-3">
+        <button onclick="expandFeed()" class="btn btn-ghost text-xs">
+          Ver mais ${data.length - 25} vagas
+        </button>
+      </div>`;
+  }
+}
+
+async function loadOpportunityFeed() {
+  // _hireScoreMap is already populated by refreshHireScoreMap()
+  // If still empty (first load), try refreshing it first
+  if (!Object.keys(_hireScoreMap).length) {
+    await refreshHireScoreMap();
+  }
+  renderOpportunityFeed();
+}
+
+let _feedExpanded = false;
+function expandFeed() {
+  _feedExpanded = true;
+  renderOpportunityFeed();
+}
+
+// ══ WHY NOT MODAL ═════════════════════════════════════════════════════════════
+async function openWhyNot(jobId, company, title) {
+  const modal = $('whynot-modal');
+  modal.classList.add('open');
+  $('wn-title').textContent = `Por que não passou? — ${esc(company)}`;
+  $('wn-content').innerHTML = '<div class="empty-state py-4"><span class="spinner"></span></div>';
+
+  // Try direct lookup, then fuzzy match by company
+  const hs = _hireScoreMap[jobId]
+    ?? Object.values(_hireScoreMap).find(h => h.company === company && h.job_title === title)
+    ?? Object.values(_hireScoreMap).find(h => h.company === company);
+
+  if (!hs) {
+    $('wn-content').innerHTML = `<p class="text-gray-500 text-sm">
+      Hire Score não encontrado para esta vaga.<br>
+      <span style="font-size:11px;color:#4b5563;">Execute o Hunt para calcular scores.</span>
+    </p>`;
+    return;
+  }
+
+  const ip    = hs.interview_probability ?? 0;
+  const hs_   = hs.hire_score            ?? 0;
+  const gap   = Math.max(0, 90 - ip);
+  const ipCol = ip >= 90 ? '#22c55e' : ip >= 75 ? '#fbbf24' : '#ef4444';
+
+  const DIMS = [
+    { key: 'technical_fit',   label: 'Technical Fit'  },
+    { key: 'ats_probability', label: 'ATS Probability' },
+    { key: 'seniority_fit',   label: 'Seniority Fit'  },
+    { key: 'salary_fit',      label: 'Salary Fit'     },
+    { key: 'location_fit',    label: 'Location Fit'   },
+  ];
+
+  const dimsHtml = DIMS.map(({ key, label }) => {
+    const v = hs[key]; if (v == null) return '';
+    const bar = Math.round(Number(v));
+    const col = bar >= 80 ? '#22c55e' : bar >= 60 ? '#fbbf24' : '#ef4444';
+    return `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <span style="width:115px;font-size:12px;color:#9ca3af;flex-shrink:0;">${label}</span>
+        <div style="flex:1;height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;">
+          <div style="width:${bar}%;height:100%;background:${col};border-radius:3px;transition:width .5s;"></div>
+        </div>
+        <span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:${col};width:28px;text-align:right;">${bar}</span>
+      </div>`;
+  }).join('');
+
+  const kwMissing  = Array.isArray(hs.atsKeywordsMissing) ? hs.atsKeywordsMissing : [];
+  const kwFound    = Array.isArray(hs.atsKeywordsFound)   ? hs.atsKeywordsFound   : [];
+  const weaknesses = Array.isArray(hs.keyWeaknesses)      ? hs.keyWeaknesses      : [];
+
+  $('wn-content').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
+      <div class="glass rounded-xl p-3 text-center">
+        <div style="font-size:22px;font-weight:900;font-family:'JetBrains Mono',monospace;color:${ipCol}">${ip}%</div>
+        <div style="font-size:9px;color:#6b7280;margin-top:2px;">Interview Probability</div>
+      </div>
+      <div class="glass rounded-xl p-3 text-center">
+        <div style="font-size:22px;font-weight:900;font-family:'JetBrains Mono',monospace;color:#93c5fd">${hs_}</div>
+        <div style="font-size:9px;color:#6b7280;margin-top:2px;">Hire Score Base</div>
+      </div>
+      <div class="glass rounded-xl p-3 text-center">
+        <div style="font-size:22px;font-weight:900;font-family:'JetBrains Mono',monospace;color:${gap===0?'#22c55e':'#f87171'}">${gap > 0 ? '-'+gap : '✓'}</div>
+        <div style="font-size:9px;color:#6b7280;margin-top:2px;">${gap > 0 ? 'Gap p/ APPLY' : 'Acima do Gate'}</div>
+      </div>
+    </div>
+
+    ${hs.competition_level ? `
+    <div class="explain-label">🏁 Contexto de Mercado</div>
+    <div class="explain-reason" style="font-size:12px;">
+      Concorrência: <strong style="color:#fbbf24;">${esc(hs.competition_level)}</strong>
+      &nbsp;·&nbsp;
+      Publicada há <strong style="color:#93c5fd;">${hs.publication_age_days ?? '?'} dia(s)</strong>
+      ${(hs.publication_age_days ?? 0) > 7
+        ? '<br><span style="color:#f87171;font-size:11px;">⚠️ Vaga antiga — probabilidade de callback reduzida</span>' : ''}
+    </div>` : ''}
+
+    <div class="explain-label">📐 Dimensões de Pontuação</div>
+    <div class="explain-reason">${dimsHtml || '<span style="font-size:11px;color:#4b5563;">Sem dados</span>'}</div>
+
+    ${hs.reasoning ? `
+    <div class="explain-label">🤖 Análise do Modelo</div>
+    <div class="explain-reason">${esc(hs.reasoning)}</div>` : ''}
+
+    ${weaknesses.length ? `
+    <div class="explain-label">⚠️ Pontos Fracos Identificados</div>
+    <div class="explain-reason">${weaknesses.map(w => `<div style="margin-bottom:3px;">• ${esc(w)}</div>`).join('')}</div>` : ''}
+
+    ${kwMissing.length ? `
+    <div class="explain-label">❌ Keywords ATS Ausentes (${kwMissing.length})</div>
+    <div class="explain-reason">${kwMissing.map(k =>
+      `<span class="badge badge-red" style="margin:2px;">${esc(k)}</span>`).join('')}</div>` : ''}
+
+    ${kwFound.length ? `
+    <div class="explain-label">✅ Keywords ATS Presentes (${kwFound.length})</div>
+    <div class="explain-reason">${kwFound.map(k =>
+      `<span class="badge badge-green" style="margin:2px;">${esc(k)}</span>`).join('')}</div>` : ''}
+
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.06);display:flex;gap:8px;">
+      <button onclick="closeWhyNot();openHowToWin('${esc(jobId)}','${esc(company)}','${esc(title)}')"
+        class="btn btn-primary text-xs" style="flex:1;justify-content:center;">🎯 HOW TO WIN</button>
+      <button onclick="closeWhyNot()" class="btn btn-ghost text-xs">Fechar</button>
+    </div>`;
+}
+
+function closeWhyNot() { $('whynot-modal').classList.remove('open'); }
+
+// ══ HOW TO WIN MODAL ══════════════════════════════════════════════════════════
+async function openHowToWin(jobId, company, title) {
+  const modal = $('howtowin-modal');
+  modal.classList.add('open');
+  $('htw-title').textContent = `Como aumentar suas chances — ${esc(company)}`;
+  $('htw-content').innerHTML = '<div class="empty-state py-4"><span class="spinner"></span></div>';
+
+  const hs = _hireScoreMap[jobId]
+    ?? Object.values(_hireScoreMap).find(h => h.company === company && h.job_title === title)
+    ?? Object.values(_hireScoreMap).find(h => h.company === company);
+
+  if (!hs) {
+    $('htw-content').innerHTML = '<p class="text-gray-500 text-sm">Hire Score não encontrado para esta vaga.</p>';
+    return;
+  }
+
+  const ip         = hs.interview_probability ?? 0;
+  const kwMissing  = Array.isArray(hs.atsKeywordsMissing) ? hs.atsKeywordsMissing : [];
+  const strengths  = Array.isArray(hs.keyStrengths)       ? hs.keyStrengths       : [];
+  const weaknesses = Array.isArray(hs.keyWeaknesses)      ? hs.keyWeaknesses      : [];
+  const ipCol      = ip >= 90 ? '#22c55e' : ip >= 75 ? '#fbbf24' : '#ef4444';
+
+  const tips = [];
+
+  if (kwMissing.length) {
+    const gain = Math.min(15, kwMissing.length * 2);
+    tips.push({
+      icon: '📄', color: '#60a5fa',
+      title: 'Adicionar keywords ausentes ao CV',
+      desc: `Inclua no CV ou LinkedIn: ${kwMissing.slice(0, 5).join(', ')}${kwMissing.length > 5 ? ' e mais...' : ''}`,
+      gain: `+${gain}% ATS Probability estimado`,
+    });
+  }
+
+  if ((hs.publication_age_days ?? 0) > 5) {
+    tips.push({
+      icon: '⏱', color: '#fbbf24',
+      title: 'Aplicar mais cedo nas próximas vagas',
+      desc: 'Vagas publicadas há menos de 3 dias têm 2× mais chance de callback. Monitore o hunt diariamente.',
+      gain: '+8% IP nas próximas vagas similares',
+    });
+  }
+
+  if (hs.competition_level === 'very_high' || hs.competition_level === 'high') {
+    tips.push({
+      icon: '🎯', color: '#a78bfa',
+      title: 'Personalizar carta de apresentação',
+      desc: 'Concorrência alta requer diferenciação. Cite projetos específicos mencionados no JD.',
+      gain: 'Reduz descarte por recrutador humano',
+    });
+  }
+
+  if (strengths.length) {
+    tips.push({
+      icon: '⚡', color: '#22c55e',
+      title: 'Destacar pontos fortes no topo do CV',
+      desc: `Para esta vaga: ${strengths.join(' · ')}`,
+      gain: 'Aumenta leitura pelo recrutador',
+    });
+  }
+
+  if (weaknesses.length) {
+    tips.push({
+      icon: '📚', color: '#f59e0b',
+      title: 'Mitigar pontos fracos identificados',
+      desc: esc(weaknesses[0]),
+      gain: 'Reduz risco de rejeição ATS/RH',
+    });
+  }
+
+  if (!tips.length) {
+    tips.push({
+      icon: '✅', color: '#22c55e',
+      title: 'Boa pontuação — aplique agora!',
+      desc: 'Esta vaga já tem alta probabilidade. Não espere — a concorrência aumenta a cada dia.',
+      gain: `Interview Probability: ${ip}%`,
+    });
+  }
+
+  $('htw-content').innerHTML = `
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:10px;color:#6b7280;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Interview Probability Atual</div>
+      <div style="font-size:34px;font-weight:900;font-family:'JetBrains Mono',monospace;color:${ipCol}">${ip}%</div>
+      ${ip < 90 ? `<div style="font-size:11px;color:#6b7280;margin-top:3px;">Faltam <strong style="color:#f59e0b;">${90 - ip} pts</strong> para o gate APPLY (≥90%)</div>` : ''}
+    </div>
+
+    <div class="space-y-3">
+      ${tips.map(t => `
+        <div class="glass rounded-xl p-4" style="border-left:3px solid ${t.color};">
+          <div style="display:flex;align-items:flex-start;gap:10px;">
+            <span style="font-size:18px;flex-shrink:0;">${t.icon}</span>
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:3px;">${t.title}</div>
+              <div style="font-size:12px;color:#9ca3af;line-height:1.5;margin-bottom:6px;">${t.desc}</div>
+              <span class="badge" style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:#86efac;font-size:10px;">↑ ${t.gain}</span>
+            </div>
+          </div>
+        </div>`).join('')}
+    </div>
+
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.06);display:flex;gap:8px;">
+      ${hs.linkedin_url
+        ? `<a href="${esc(hs.linkedin_url)}" target="_blank" class="btn btn-primary text-xs" style="flex:1;justify-content:center;">Aplicar agora ↗</a>`
+        : ''}
+      <button onclick="closeHowToWin()" class="btn btn-ghost text-xs">Fechar</button>
+    </div>`;
+}
+
+function closeHowToWin() { $('howtowin-modal').classList.remove('open'); }
 
 // ══ HOME SECTION ═════════════════════════════════════════════════════════════
 async function loadHome() {
@@ -2239,26 +2882,97 @@ async function openExplain(jobId, company, title) {
   $('explain-content').innerHTML = '<div class="empty-state py-4"><span class="spinner"></span></div>';
 
   try {
+    // ── Primary path: Hire Score data (new API) ─────────────────────────────
+    const hs = _hireScoreMap[jobId];
+    if (hs) {
+      const ip  = hs.interview_probability ?? 0;
+      const act = hs.action ?? 'SKIP';
+      const actColor = act === 'APPLY' ? '#22c55e' : act === 'REVIEW' ? '#fbbf24' : '#ef4444';
+
+      const DIMS = [
+        { key: 'technical_fit',   label: 'Tech Fit'  },
+        { key: 'ats_probability', label: 'ATS Prob'  },
+        { key: 'seniority_fit',   label: 'Seniority' },
+        { key: 'salary_fit',      label: 'Salary'    },
+        { key: 'location_fit',    label: 'Location'  },
+      ];
+      const dimsHtml = DIMS.map(({ key, label }) => {
+        const v = hs[key]; if (v == null) return '';
+        const bar = Math.round(Number(v));
+        const col = bar >= 80 ? '#22c55e' : bar >= 60 ? '#fbbf24' : '#ef4444';
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+          <span style="width:78px;font-size:11px;color:#9ca3af;flex-shrink:0;">${label}</span>
+          <div style="flex:1;height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;">
+            <div style="width:${bar}%;height:100%;background:${col};border-radius:2px;transition:width .4s;"></div>
+          </div>
+          <span style="font-size:11px;font-family:'JetBrains Mono',monospace;color:${col};width:30px;text-align:right;">${bar}</span>
+        </div>`;
+      }).join('');
+
+      const kwFound   = Array.isArray(hs.atsKeywordsFound)   ? hs.atsKeywordsFound   : [];
+      const kwMissing = Array.isArray(hs.atsKeywordsMissing) ? hs.atsKeywordsMissing : [];
+
+      $('explain-content').innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+          <div class="glass rounded-lg p-3 text-center">
+            <div style="font-size:26px;font-weight:900;font-family:'JetBrains Mono',monospace;color:${ip>=90?'#22c55e':ip>=75?'#fbbf24':'#ef4444'}">${ip}%</div>
+            <div style="font-size:10px;color:#6b7280;margin-top:2px;">Interview Probability</div>
+          </div>
+          <div class="glass rounded-lg p-3 text-center">
+            <div style="font-size:26px;font-weight:900;font-family:'JetBrains Mono',monospace;color:${actColor}">${act}</div>
+            <div style="font-size:10px;color:#6b7280;margin-top:2px;">Hire Score: ${hs.hire_score ?? '—'}</div>
+          </div>
+        </div>
+
+        <div class="explain-label">📐 Dimensões</div>
+        <div class="explain-reason">${dimsHtml || '<span style="color:#4b5563;font-size:11px;">Sem dimensões registradas</span>'}</div>
+
+        ${hs.competition_level ? `
+        <div class="explain-label">🏁 Contexto de mercado</div>
+        <div class="explain-reason" style="font-size:12px;">
+          Concorrência: <strong style="color:#fbbf24;">${hs.competition_level}</strong>
+          &nbsp;·&nbsp;
+          Publicada há <strong style="color:#93c5fd;">${hs.publication_age_days ?? '?'} dia(s)</strong>
+        </div>` : ''}
+
+        ${hs.reasoning ? `
+        <div class="explain-label">💡 Análise do modelo</div>
+        <div class="explain-reason">${esc(hs.reasoning)}</div>` : ''}
+
+        ${kwFound.length ? `
+        <div class="explain-label">✅ Keywords ATS presentes (${kwFound.length})</div>
+        <div class="explain-reason">${kwFound.map(k=>`<span class="badge badge-green" style="margin:2px;">${esc(k)}</span>`).join('')}</div>` : ''}
+
+        ${kwMissing.length ? `
+        <div class="explain-label">⚠️ Keywords ATS ausentes (${kwMissing.length})</div>
+        <div class="explain-reason">${kwMissing.map(k=>`<span class="badge badge-red" style="margin:2px;">${esc(k)}</span>`).join('')}</div>` : ''}
+      `;
+      return;
+    }
+
+    // ── Fallback: legacy applications data ──────────────────────────────────
     const r = await fetch(`${API}/api/work/applications?search=${encodeURIComponent(company)}&status=all`);
     const rows = await r.json();
     const row = rows.find(x => x.id === jobId) || rows[0];
     if (!row) { $('explain-content').innerHTML = '<p class="text-gray-500 text-sm">Candidatura não encontrada.</p>'; return; }
 
     const sections = [];
-    if (row.score_reason) sections.push({ label: '⚡ Score: ' + (row.score_total ?? 0) + '/100', text: row.score_reason });
+    if (row.score_reason) sections.push({ label: '⚡ Match Score (legado): ' + (row.score_total ?? 0) + '/100', text: row.score_reason });
     if (row.reason_apply)  sections.push({ label: '✅ Por que aplicou', text: row.reason_apply });
     if (row.reason_filter) sections.push({ label: '⛔ Por que não aplicou', text: row.reason_filter });
     if (row.reason_score)  sections.push({ label: '📊 Detalhes do score', text: row.reason_score });
-
     if (!sections.length) {
       sections.push({ label: '📋 Status', text: `${row.status} — Score: ${row.score_total ?? 0}` });
       if (row.score_reason) sections.push({ label: '📝 Motivo', text: row.score_reason });
     }
-
-    $('explain-content').innerHTML = sections.map(s => `
-      <div class="explain-label">${s.label}</div>
-      <div class="explain-reason">${esc(s.text)}</div>
-    `).join('');
+    $('explain-content').innerHTML = `
+      <div class="explain-reason" style="border-left-color:#f59e0b;margin-bottom:12px;font-size:11px;">
+        ℹ️ Hire Score ainda não calculado para esta vaga — exibindo dados legados.
+      </div>
+      ${sections.map(s => `
+        <div class="explain-label">${s.label}</div>
+        <div class="explain-reason">${esc(s.text)}</div>
+      `).join('')}`;
   } catch {
     $('explain-content').innerHTML = '<p class="text-red-400 text-sm">Erro ao carregar dados.</p>';
   }

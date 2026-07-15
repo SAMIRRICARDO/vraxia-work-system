@@ -152,12 +152,22 @@ Return ONLY this JSON:
 
     // Interview Probability = HireScore + competition penalty (can go lower than hireScore)
     const penalty = COMPETITION_PENALTY[raw.competitionLevel];
-    const pubPenalty = raw.publicationAgeDays > 14 ? -5 : raw.publicationAgeDays > 7 ? -2 : 0;
+    // Timing penalty/bonus — publication age is one of the strongest predictors of callback rate
+    const pubPenalty =
+      raw.publicationAgeDays < 1  ? +8  :   // < 24h: bônus máximo
+      raw.publicationAgeDays <= 3 ? +3  :   // 1-3 dias: pequeno bônus
+      raw.publicationAgeDays <= 5 ?  0  :   // 3-5 dias: neutro
+      raw.publicationAgeDays <= 7 ? -8  :   // 5-7 dias: penalidade moderada
+      raw.publicationAgeDays <= 14? -15 :   // 1-2 semanas: penalidade alta
+                                    -25;    // > 2 semanas: quasi-eliminatório
     const interviewProbability = this.clamp(Math.round(hireScore + penalty + pubPenalty), 0, 100);
 
+    // Gate uses interviewProbability (not raw hireScore) so age+competition penalties are
+    // decision-relevant, not just cosmetic. A 14-day stale job with perfect tech fit
+    // still has low P(interview) — interviewProbability encodes that reality.
     const action =
-      hireScore >= HIRE_THRESHOLD  ? 'APPLY' :
-      hireScore >= REVIEW_THRESHOLD ? 'REVIEW' :
+      interviewProbability >= HIRE_THRESHOLD  ? 'APPLY' :
+      interviewProbability >= REVIEW_THRESHOLD ? 'REVIEW' :
       'SKIP';
 
     const now = new Date();

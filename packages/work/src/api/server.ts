@@ -86,6 +86,12 @@ function dbQuery(db: Database, sql: string, params: (string | number | null)[] =
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+function tryParseJson<T>(val: unknown, fallback: T): T {
+  if (Array.isArray(val)) return val as unknown as T;
+  if (typeof val !== 'string' || !val) return fallback;
+  try { return JSON.parse(val) as T; } catch { return fallback; }
+}
+
 function detectPlatform(row: Record<string, unknown>): string {
   const dbPlatform = (row['platform'] as string | null) ?? '';
   if (dbPlatform === 'catho')   return 'Catho';
@@ -1321,6 +1327,218 @@ app.patch('/api/work/applications/:jobId/lifecycle', async (req: Request, res: R
 
     if (!updated) { res.status(404).json({ error: 'Candidatura não encontrada' }); return; }
     res.json({ ok: true, jobId, state, updatedAt: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+// ── GET /api/work/opportunity-scores ─────────────────────────────────────────
+// Career Decision Score: hire_scores JOIN job_applications.
+// 5 dimensions computed server-side — frontend never calculates rules.
+//   interviewProbability · atsProbability · technicalFit · opportunityQuality · roiScore
+app.get('/api/work/opportunity-scores', async (req: Request, res: Response) => {
+  try {
+    const limit  = Math.min(parseInt(String(req.query['limit'] ?? '100'), 10), 500);
+    const action = String(req.query['action'] ?? 'all'); // APPLY | REVIEW | SKIP | all
+
+    const rows = await withDb(db => {
+      let sql = `
+        SELECT
+          hs.job_id, hs.twin_id,
+          hs.technical_fit, hs.salary_fit, hs.seniority_fit,
+          hs.location_fit, hs.ats_probability, hs.historical_score,
+          hs.competition_level, hs.publication_age_days,
+          hs.interview_probability, hs.hire_score, hs.action,
+          hs.reasoning, hs.key_strengths, hs.key_weaknesses,
+          hs.ats_keywords_found, hs.ats_keywords_missing, hs.scored_at,
+          ja.company, ja.job_title, ja.status, ja.platform,
+          ja.linkedin_url, ja.applied_at, ja.updated_at
+        FROM hire_scores hs
+        JOIN job_applications ja ON hs.job_id = ja.id
+        WHERE 1=1
+      `;
+      const params: (string | number)[] = [];
+      if (action !== 'all') { sql += ` AND hs.action = ?`; params.push(action); }
+      sql += ` ORDER BY hs.interview_probability DESC LIMIT ?`;
+      params.push(limit);
+      return dbQuery(db, sql, params);
+    });
+
+    const result = (rows ?? []).map(r => {
+      const ip   = (r['interview_probability'] as number) ?? 0;
+      const ats  = (r['ats_probability']       as number) ?? 0;
+      const comp = (r['competition_level']     as string) ?? 'medium';
+      const age  = (r['publication_age_days']  as number) ?? 3;
+
+      const compAdj = comp === 'low' ? 20 : comp === 'medium' ? 0 : comp === 'high' ? -15 : -30;
+      const ageAdj  = age < 1 ? 20 : age <= 3 ? 10 : age <= 7 ? 0 : age <= 14 ? -15 : -25;
+      const opportunityQuality = Math.min(100, Math.max(0, Math.round(70 + compAdj + ageAdj)));
+      const roiScore = Math.min(100, Math.max(0, Math.round(ip * 0.45 + ats * 0.25 + opportunityQuality * 0.30)));
+
+      return {
+        ...r,
+        opportunityQuality,
+        roiScore,
+        platform:           detectPlatform(r),
+        keyStrengths:       tryParseJson(r['key_strengths'],        [] as string[]),
+        keyWeaknesses:      tryParseJson(r['key_weaknesses'],       [] as string[]),
+        atsKeywordsFound:   tryParseJson(r['ats_keywords_found'],   [] as string[]),
+        atsKeywordsMissing: tryParseJson(r['ats_keywords_missing'], [] as string[]),
+      };
+    });
+
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+// ── GET /api/work/career-intelligence ────────────────────────────────────────
+// Aggregates learning_patterns for Career Intelligence page.
+// Returns interview rates by twin / stack / platform / role, plus timing from hire_scores.
+app.get('/api/work/career-intelligence', async (_req: Request, res: Response) => {
+  try {
+    const patterns = await withDb(db => dbQuery(db, `
+      SELECT pattern_type, pattern_key, total_applications, interviews,
+             rejections, no_response, offers, interview_rate, avg_hire_score, last_updated
+      FROM learning_patterns
+      ORDER BY pattern_type, interview_rate DESC, total_applications DESC
+    `)) ?? [];
+
+    const byType: Record<string, typeof patterns> = { twin: [], stack: [], platform: [], role: [] };
+    for (const r of patterns) {
+      const t = r['pattern_type'] as string;
+      if (byType[t]) byType[t].push(r);
+    }
+
+    // Timing buckets from hire_scores × interview_outcomes
+    const timing = await withDb(db => dbQuery(db, `
+      SELECT
+        CASE
+          WHEN hs.publication_age_days < 1   THEN '< 24h'
+          WHEN hs.publication_age_days <= 3  THEN '1-3 dias'
+          WHEN hs.publication_age_days <= 7  THEN '3-7 dias'
+          WHEN hs.publication_age_days <= 14 THEN '1-2 semanas'
+          ELSE '> 2 semanas'
+        END AS bucket,
+        COUNT(*) AS total,
+        SUM(CASE WHEN io.outcome IN ('interview','offer','hired') THEN 1 ELSE 0 END) AS interviews,
+        AVG(CASE WHEN io.outcome IN ('interview','offer','hired') THEN 100.0 ELSE 0 END) AS interview_rate,
+        MIN(hs.publication_age_days) AS min_age
+      FROM hire_scores hs
+      LEFT JOIN interview_outcomes io ON hs.job_id = io.job_id
+      WHERE hs.publication_age_days IS NOT NULL
+      GROUP BY bucket
+      ORDER BY min_age
+    `)) ?? [];
+
+    const [totalApplied, totalInterviews] = await withDb(db => {
+      const a = dbQuery(db, `SELECT COUNT(*) as c FROM job_applications WHERE status='applied'`);
+      const i = dbQuery(db, `SELECT COUNT(*) as c FROM interview_outcomes WHERE outcome IN ('interview','offer','hired')`);
+      return [(a[0]?.['c'] as number) ?? 0, (i[0]?.['c'] as number) ?? 0];
+    }) ?? [0, 0];
+
+    const overallIR = totalApplied > 0 ? parseFloat(((totalInterviews / totalApplied) * 100).toFixed(1)) : 0;
+
+    res.json({
+      twins:     byType['twin']     ?? [],
+      stacks:    byType['stack']    ?? [],
+      platforms: byType['platform'] ?? [],
+      roles:     byType['role']     ?? [],
+      timing,
+      summary: { totalApplied, totalInterviews, overallIR },
+    });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+// ── GET /api/work/decisions ───────────────────────────────────────────────────
+// Gate decisions from decisions.jsonl (written by hunt.ts → persistDecision())
+app.get('/api/work/decisions', (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(parseInt(String(req.query['limit'] ?? '100'), 10), 500);
+    const decisionsPath = path.join(WORK_DIR, 'decisions.jsonl');
+    if (!fs.existsSync(decisionsPath)) { res.json([]); return; }
+    const all = fs.readFileSync(decisionsPath, 'utf-8')
+      .trim().split('\n').filter(Boolean)
+      .map(l => { try { return JSON.parse(l); } catch { return null; } })
+      .filter(Boolean)
+      .reverse()
+      .slice(0, limit);
+    res.json(all);
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+// ── GET /api/work/prediction-stats ────────────────────────────────────────────
+// Prediction Validation: compares predicted IP vs actual outcomes.
+// Prediction correct if (IP>=75 && got interview) or (IP<75 && no interview).
+app.get('/api/work/prediction-stats', async (_req: Request, res: Response) => {
+  try {
+    const outcomes = await withDb(db => dbQuery(db, `
+      SELECT outcome, interview_probability_at_apply, hire_score_at_apply,
+             response_time_days, twin_id, company, job_title, created_at
+      FROM interview_outcomes
+      WHERE outcome IS NOT NULL
+      ORDER BY created_at DESC
+      LIMIT 200
+    `)) ?? [];
+
+    let correct = 0, falsePos = 0, falseNeg = 0, trueNeg = 0;
+    for (const o of outcomes) {
+      const ip = (o['interview_probability_at_apply'] as number) ?? 0;
+      const got = ['interview', 'offer', 'hired'].includes(o['outcome'] as string);
+      const pred = ip >= 75;
+      if (pred && got) correct++;
+      else if (pred && !got) falsePos++;
+      else if (!pred && got) falseNeg++;
+      else trueNeg++;
+    }
+
+    const total   = outcomes.length;
+    const accuracy = total > 0 ? Math.round(((correct + trueNeg) / total) * 100) : 0;
+
+    const recent = outcomes.slice(0, 15).map(o => ({
+      company:             o['company'],
+      jobTitle:            o['job_title'],
+      twinId:              o['twin_id'],
+      prediction:          Math.round((o['interview_probability_at_apply'] as number) ?? 0),
+      outcome:             o['outcome'],
+      gotInterview:        ['interview', 'offer', 'hired'].includes(o['outcome'] as string),
+      predictedInterview:  ((o['interview_probability_at_apply'] as number) ?? 0) >= 75,
+      responseTimeDays:    o['response_time_days'],
+    }));
+
+    // Avg IP per outcome bucket
+    const buckets = [
+      { range: '≥ 90%',  min: 90,  max: 101 },
+      { range: '75-89%', min: 75,  max: 90 },
+      { range: '50-74%', min: 50,  max: 75 },
+      { range: '< 50%',  min: 0,   max: 50 },
+    ].map(b => {
+      const inBucket = outcomes.filter(o => {
+        const ip = (o['interview_probability_at_apply'] as number) ?? 0;
+        return ip >= b.min && ip < b.max;
+      });
+      const interviews = inBucket.filter(o => ['interview','offer','hired'].includes(o['outcome'] as string)).length;
+      return {
+        range:          b.range,
+        count:          inBucket.length,
+        interviews,
+        actualIR:       inBucket.length > 0 ? Math.round((interviews / inBucket.length) * 100) : 0,
+      };
+    });
+
+    res.json({
+      total, correct, falsePositives: falsePos, falseNegatives: falseNeg, trueNegatives: trueNeg,
+      accuracy,
+      falsePositiveRate: total > 0 ? Math.round((falsePos / total) * 100) : 0,
+      falseNegativeRate: total > 0 ? Math.round((falseNeg / total) * 100) : 0,
+      recent,
+      buckets,
+    });
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }

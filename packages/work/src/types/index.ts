@@ -138,6 +138,7 @@ export interface QuestionnaireAnswer {
   questionId: string;
   questionText: string;
   answer: string;
+  trace?: import('../rag/candidate-profile-types.js').DecisionTrace;
 }
 
 // ─── RAG ─────────────────────────────────────────────────────────────────────
