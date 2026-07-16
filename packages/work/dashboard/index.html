@@ -272,6 +272,10 @@
     .wn-title{font-size:15px;font-weight:700;color:#fff;margin-bottom:16px;}
     /* Feed filter buttons reuse mkt-filter-btn */
     .feed-filter-btn.active{background:rgba(167,139,250,.12);border-color:rgba(167,139,250,.3);color:#c4b5fd;}
+
+    /* ── Show/Hide sections ────────────────────────────────────────────── */
+    .sec-page{display:none;}
+    .sec-page.active{display:block;}
   </style>
 </head>
 <body class="h-full overflow-hidden">
@@ -324,12 +328,20 @@
 
     <!-- Nav -->
     <nav class="flex-1 py-3">
-      <div class="px-4 mb-2 text-xs text-gray-700 uppercase tracking-wider font-semibold">Career Engine</div>
-      <div class="nav-item" id="nav-radar" onclick="navTo('sec-radar')">
-        <i data-lucide="radar" style="width:15px;height:15px"></i> Radar
+      <div class="px-4 mb-2 text-xs text-gray-700 uppercase tracking-wider font-semibold">Visão Geral</div>
+      <div class="nav-item" id="nav-home" onclick="navTo('sec-home')">
+        <i data-lucide="home" style="width:15px;height:15px"></i> Home
       </div>
-      <div class="nav-item" id="nav-feed" onclick="navTo('sec-feed')">
-        <i data-lucide="zap" style="width:15px;height:15px"></i> Opportunity Feed
+      <div class="nav-item" id="nav-dashboard" onclick="navTo('sec-dashboard')">
+        <i data-lucide="layout-dashboard" style="width:15px;height:15px"></i> Dashboard
+      </div>
+      <div class="nav-item" id="nav-table" onclick="navTo('sec-table')">
+        <i data-lucide="list" style="width:15px;height:15px"></i> Candidaturas
+      </div>
+
+      <div class="px-4 mt-4 mb-2 text-xs text-gray-700 uppercase tracking-wider font-semibold">Inteligência</div>
+      <div class="nav-item" id="nav-oportunidades" onclick="navTo('sec-oportunidades')">
+        <i data-lucide="zap" style="width:15px;height:15px"></i> Oportunidades
       </div>
       <div class="nav-item" id="nav-intelligence" onclick="navTo('sec-intelligence')">
         <i data-lucide="brain" style="width:15px;height:15px"></i> Career Intelligence
@@ -337,30 +349,22 @@
       <div class="nav-item" id="nav-prediction" onclick="navTo('sec-prediction')">
         <i data-lucide="target" style="width:15px;height:15px"></i> Prediction
       </div>
+      <div class="nav-item" id="nav-truth" onclick="navTo('sec-truth')">
+        <i data-lucide="shield-check" style="width:15px;height:15px"></i> Truth Engine
+      </div>
 
-      <div class="px-4 mt-4 mb-2 text-xs text-gray-700 uppercase tracking-wider font-semibold">Dashboard</div>
-
-      <div class="nav-item" id="nav-home" onclick="navTo('sec-home')">
-        <i data-lucide="home" style="width:15px;height:15px"></i> Home
-      </div>
-      <div class="nav-item active" id="nav-kpis" onclick="navTo('sec-kpis')">
-        <i data-lucide="layout-dashboard" style="width:15px;height:15px"></i> KPIs
-      </div>
-      <div class="nav-item" id="nav-table" onclick="navTo('sec-table')">
-        <i data-lucide="list" style="width:15px;height:15px"></i> Candidaturas
-      </div>
-      <div class="nav-item" id="nav-charts" onclick="navTo('sec-charts')">
-        <i data-lucide="bar-chart-2" style="width:15px;height:15px"></i> Gráficos
+      <div class="px-4 mt-4 mb-2 text-xs text-gray-700 uppercase tracking-wider font-semibold">Automação</div>
+      <div class="nav-item" id="nav-hunt" onclick="navTo('sec-hunt')">
+        <i data-lucide="play-circle" style="width:15px;height:15px"></i> Hunt Mode
       </div>
       <div class="nav-item" id="nav-questionnaire" onclick="navTo('sec-questionnaire')">
         <i data-lucide="message-circle" style="width:15px;height:15px"></i> Questionários
       </div>
-      <div class="nav-item" id="nav-analytics" onclick="navTo('sec-analytics')">
+      <div class="nav-item" id="nav-analytics-full" onclick="navTo('sec-analytics-full')">
         <i data-lucide="trending-up" style="width:15px;height:15px"></i> Analytics
       </div>
-      <div class="nav-item" id="nav-truth" onclick="navTo('sec-truth')">
-        <i data-lucide="shield-check" style="width:15px;height:15px"></i> Truth Engine
-      </div>
+
+      <div class="px-4 mt-4 mb-2 text-xs text-gray-700 uppercase tracking-wider font-semibold">Ferramentas</div>
       <div class="nav-item" id="nav-marketplace" onclick="navTo('sec-marketplace')">
         <i data-lucide="store" style="width:15px;height:15px"></i> Marketplace
       </div>
@@ -369,23 +373,6 @@
       </div>
       <div class="nav-item" id="nav-network" onclick="navTo('sec-network')">
         <i data-lucide="users" style="width:15px;height:15px"></i> Networking
-      </div>
-      <div class="nav-item" id="nav-hunt" onclick="navTo('sec-hunt')">
-        <i data-lucide="play-circle" style="width:15px;height:15px"></i> Hunt Mode
-      </div>
-
-      <div class="px-4 mt-5 mb-2 text-xs text-gray-700 uppercase tracking-wider font-semibold">Plataformas</div>
-      <div class="nav-item" onclick="filterPlatform('LinkedIn')">
-        <i data-lucide="linkedin" style="width:14px;height:14px;color:#0ea5e9"></i>
-        <span>LinkedIn</span>
-      </div>
-      <div class="nav-item" onclick="filterPlatform('Gupy')">
-        <i data-lucide="building-2" style="width:14px;height:14px;color:#a78bfa"></i>
-        <span>Gupy</span>
-      </div>
-      <div class="nav-item" onclick="filterPlatform('Catho')">
-        <i data-lucide="briefcase" style="width:14px;height:14px;color:#fb923c"></i>
-        <span>Catho</span>
       </div>
 
       <div class="px-4 mt-5 mb-2 text-xs text-gray-700 uppercase tracking-wider font-semibold">Módulo</div>
@@ -438,7 +425,7 @@
     </div>
 
     <!-- ── SECTION 0: HOME ──────────────────────────────────────────────────── -->
-    <div id="sec-home" class="px-8 py-6 border-b border-white/5" style="background:linear-gradient(135deg,rgba(34,197,94,.04) 0%,transparent 60%);">
+    <div id="sec-home" class="sec-page px-8 py-6 border-b border-white/5" style="background:linear-gradient(135deg,rgba(34,197,94,.04) 0%,transparent 60%);">
       <div class="flex items-start justify-between gap-4 mb-5">
         <div>
           <div class="text-xs text-gray-600 font-mono uppercase tracking-widest mb-1">Career OS — Bem-vindo</div>
@@ -499,7 +486,7 @@
     </div>
 
     <!-- ── SECTION: OPPORTUNITY RADAR ──────────────────────────────────────── -->
-    <div id="sec-radar" class="px-8 py-6 border-b border-white/5">
+    <div id="sec-radar" class="sec-page px-8 py-6 border-b border-white/5">
       <div class="flex items-center gap-2 mb-1">
         <span class="live-dot" style="background:#22d3ee;box-shadow:0 0 6px rgba(34,211,238,.7)"></span>
         <span class="text-xs font-mono text-gray-400 uppercase tracking-widest">Opportunity Radar — Pipeline de Inteligência</span>
@@ -524,7 +511,7 @@
     </div>
 
     <!-- ── SECTION 1: KPIs ─────────────────────────────────────────────────── -->
-    <div id="sec-kpis" class="px-8 py-6 border-b border-white/5">
+    <div id="sec-kpis" class="sec-page px-8 py-6 border-b border-white/5">
       <div class="flex items-center gap-2 mb-4">
         <span class="live-dot" style="background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.7)"></span>
         <span class="text-xs font-mono text-gray-400 uppercase tracking-widest">KPIs da Sessão</span>
@@ -605,7 +592,7 @@
     </div>
 
     <!-- ── SECTION 2: TABELA ───────────────────────────────────────────────── -->
-    <div id="sec-table" class="px-8 py-6 border-b border-white/5">
+    <div id="sec-table" class="sec-page px-8 py-6 border-b border-white/5">
       <div class="flex items-center gap-2 mb-4">
         <span class="live-dot" style="background:#60a5fa;box-shadow:0 0 6px rgba(96,165,250,.7)"></span>
         <span class="text-xs font-mono text-gray-400 uppercase tracking-widest">Candidaturas</span>
@@ -681,7 +668,7 @@
     </div>
 
     <!-- ── SECTION 3: GRÁFICOS ────────────────────────────────────────────── -->
-    <div id="sec-charts" class="px-8 py-6 border-b border-white/5">
+    <div id="sec-charts" class="sec-page px-8 py-6 border-b border-white/5">
       <div class="flex items-center gap-2 mb-5">
         <span class="live-dot" style="background:#a78bfa;box-shadow:0 0 6px rgba(167,139,250,.7)"></span>
         <span class="text-xs font-mono text-gray-400 uppercase tracking-widest">Análise Visual</span>
@@ -715,7 +702,7 @@
     </div>
 
     <!-- ── SECTION: OPPORTUNITY FEED ────────────────────────────────────────── -->
-    <div id="sec-feed" class="px-8 py-6 border-b border-white/5">
+    <div id="sec-feed" class="sec-page px-8 py-6 border-b border-white/5">
       <div class="flex items-center gap-2 mb-4">
         <span class="live-dot" style="background:#a78bfa;box-shadow:0 0 6px rgba(167,139,250,.7)"></span>
         <span class="text-xs font-mono text-gray-400 uppercase tracking-widest">Opportunity Feed — Career Decision Score</span>
@@ -736,7 +723,7 @@
     </div>
 
     <!-- ── SECTION: CAREER INTELLIGENCE ────────────────────────────────────── -->
-    <div id="sec-intelligence" class="px-8 py-6 border-b border-white/5">
+    <div id="sec-intelligence" class="sec-page px-8 py-6 border-b border-white/5">
       <div class="flex items-center gap-2 mb-1">
         <span class="live-dot" style="background:#f59e0b;box-shadow:0 0 6px rgba(245,158,11,.7)"></span>
         <span class="text-xs font-mono text-gray-400 uppercase tracking-widest">Career Intelligence — IR por Dimensão</span>
@@ -800,7 +787,7 @@
     </div>
 
     <!-- ── SECTION: PREDICTION VALIDATION ──────────────────────────────────── -->
-    <div id="sec-prediction" class="px-8 py-6 border-b border-white/5">
+    <div id="sec-prediction" class="sec-page px-8 py-6 border-b border-white/5">
       <div class="flex items-center gap-2 mb-1">
         <span class="live-dot" style="background:#ec4899;box-shadow:0 0 6px rgba(236,72,153,.7)"></span>
         <span class="text-xs font-mono text-gray-400 uppercase tracking-widest">Prediction Validation — Acurácia do Modelo</span>
@@ -856,7 +843,7 @@
     </div>
 
     <!-- ── SECTION 4: QUESTIONÁRIOS ───────────────────────────────────────── -->
-    <div id="sec-questionnaire" class="px-8 py-6 border-b border-white/5">
+    <div id="sec-questionnaire" class="sec-page px-8 py-6 border-b border-white/5">
       <div class="flex items-center gap-2 mb-4">
         <span class="live-dot" style="background:#f472b6;box-shadow:0 0 6px rgba(244,114,182,.7)"></span>
         <span class="text-xs font-mono text-gray-400 uppercase tracking-widest">Log de Questionários (SenseLayer)</span>
@@ -908,7 +895,7 @@
     </div>
 
     <!-- ── SECTION: MARKETPLACE ─────────────────────────────────────────── -->
-    <div id="sec-marketplace" class="px-8 py-6">
+    <div id="sec-marketplace" class="sec-page px-8 py-6">
       <div class="flex items-center justify-between mb-2">
         <h2 class="text-lg font-semibold flex items-center gap-2">
           <i data-lucide="store" style="width:18px;height:18px;color:#f59e0b"></i> Marketplace de Agentes
@@ -952,7 +939,7 @@
     </div>
 
     <!-- ── SECTION: LEARNING / ROADMAP ──────────────────────────────────── -->
-    <div id="sec-learning" class="px-8 py-6">
+    <div id="sec-learning" class="sec-page px-8 py-6">
       <div class="flex items-center justify-between mb-5">
         <h2 class="text-lg font-semibold flex items-center gap-2">
           <i data-lucide="book-open" style="width:18px;height:18px;color:#a78bfa"></i> Roadmap de Aprendizado
@@ -992,7 +979,7 @@
     </div>
 
     <!-- ── SECTION: NETWORKING / CRM ──────────────────────────────────────── -->
-    <div id="sec-network" class="px-8 py-6">
+    <div id="sec-network" class="sec-page px-8 py-6">
       <div class="flex items-center justify-between mb-5">
         <h2 class="text-lg font-semibold flex items-center gap-2">
           <i data-lucide="users" style="width:18px;height:18px;color:#34d399"></i> Networking & CRM
@@ -1055,7 +1042,7 @@
     </div>
 
     <!-- ── SECTION 5: HUNT MODE ───────────────────────────────────────────── -->
-    <div id="sec-hunt" class="px-8 py-6">
+    <div id="sec-hunt" class="sec-page px-8 py-6">
       <div class="flex items-center gap-2 mb-5">
         <span class="live-dot" style="background:#fb923c;box-shadow:0 0 6px rgba(251,146,60,.7)"></span>
         <span class="text-xs font-mono text-gray-400 uppercase tracking-widest">Hunt Mode — Controles</span>
@@ -1187,7 +1174,7 @@
     </div>
 
     <!-- ── SECTION 6: ANALYTICS EXECUTIVO ───────────────────────────────────── -->
-    <div id="sec-analytics" class="px-8 py-6 border-b border-white/5">
+    <div id="sec-analytics" class="sec-page px-8 py-6 border-b border-white/5">
       <div class="flex items-center gap-2 mb-5">
         <span class="live-dot" style="background:#a78bfa;box-shadow:0 0 6px rgba(167,139,250,.7)"></span>
         <span class="text-xs font-mono text-gray-400 uppercase tracking-widest">Analytics Executivo — Career Intelligence</span>
@@ -1259,7 +1246,7 @@
     </div>
 
     <!-- ── SECTION 6b: D.I.A. ENHANCED ANALYTICS ────────────────────────────── -->
-    <div id="sec-dia-analytics" class="px-8 py-6 border-b border-white/5">
+    <div id="sec-dia-analytics" class="sec-page px-8 py-6 border-b border-white/5">
       <div class="flex items-center gap-2 mb-4">
         <span class="live-dot" style="background:#22d3ee;box-shadow:0 0 6px rgba(34,211,238,.6)"></span>
         <span class="text-xs font-mono text-gray-400 uppercase tracking-widest">D.I.A. — Performance &amp; Prediction Accuracy</span>
@@ -1271,7 +1258,7 @@
     </div>
 
     <!-- ── SECTION 7: TRUTH ENGINE ─────────────────────────────────────────── -->
-    <div id="sec-truth" class="px-8 py-6 border-b border-white/5">
+    <div id="sec-truth" class="sec-page px-8 py-6 border-b border-white/5">
       <div class="flex items-center gap-2 mb-2">
         <span class="live-dot" style="background:#4ade80;box-shadow:0 0 6px rgba(74,222,128,.7)"></span>
         <span class="text-xs font-mono text-gray-400 uppercase tracking-widest">Truth Engine — Auditoria de Evidências</span>
@@ -1721,28 +1708,44 @@ function closeSidebar() {
   if (ov) ov.style.display = 'none';
 }
 
-// ══ SCROLL NAV ═══════════════════════════════════════════════════════════════
+// ══ SHOW/HIDE NAV ════════════════════════════════════════════════════════════
+// Virtual groups: clicking one nav item shows multiple physical sections
+const SEC_GROUPS = {
+  'sec-dashboard':     ['sec-kpis', 'sec-charts'],
+  'sec-oportunidades': ['sec-feed', 'sec-radar'],
+  'sec-analytics-full':['sec-analytics', 'sec-dia-analytics'],
+};
+
+// Aliases: old/direct section IDs route to their merged group
+const SEC_ALIAS = {
+  'sec-kpis':          'sec-dashboard',
+  'sec-charts':        'sec-dashboard',
+  'sec-feed':          'sec-oportunidades',
+  'sec-radar':         'sec-oportunidades',
+  'sec-analytics':     'sec-analytics-full',
+  'sec-dia-analytics': 'sec-analytics-full',
+};
+
 const SEC_TO_NAV = {
-  'sec-radar':         'nav-radar',
-  'sec-feed':          'nav-feed',
-  'sec-intelligence':  'nav-intelligence',
-  'sec-prediction':    'nav-prediction',
-  'sec-home':          'nav-home',
-  'sec-kpis':          'nav-kpis',
-  'sec-table':         'nav-table',
-  'sec-charts':        'nav-charts',
-  'sec-questionnaire': 'nav-questionnaire',
-  'sec-analytics':     'nav-analytics',
-  'sec-truth':         'nav-truth',
-  'sec-marketplace':   'nav-marketplace',
-  'sec-learning':      'nav-learning',
-  'sec-network':       'nav-network',
-  'sec-hunt':          'nav-hunt',
+  'sec-home':           'nav-home',
+  'sec-dashboard':      'nav-dashboard',
+  'sec-table':          'nav-table',
+  'sec-oportunidades':  'nav-oportunidades',
+  'sec-intelligence':   'nav-intelligence',
+  'sec-prediction':     'nav-prediction',
+  'sec-truth':          'nav-truth',
+  'sec-hunt':           'nav-hunt',
+  'sec-questionnaire':  'nav-questionnaire',
+  'sec-analytics-full': 'nav-analytics-full',
+  'sec-marketplace':    'nav-marketplace',
+  'sec-learning':       'nav-learning',
+  'sec-network':        'nav-network',
 };
 
 function setNavActive(secId) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  const navId = SEC_TO_NAV[secId];
+  const resolved = SEC_ALIAS[secId] || secId;
+  const navId = SEC_TO_NAV[resolved];
   if (navId) {
     const el = document.getElementById(navId);
     if (el) el.classList.add('active');
@@ -1750,12 +1753,18 @@ function setNavActive(secId) {
 }
 
 function navTo(secId) {
-  const el = document.getElementById(secId);
-  if (!el) return;
-  // scrollIntoView encontra o scroll container correto automaticamente
-  // (funciona em #main desktop e no body em mobile)
-  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  setNavActive(secId);
+  const resolved = SEC_ALIAS[secId] || secId;
+  // Hide all sections
+  document.querySelectorAll('.sec-page').forEach(s => s.classList.remove('active'));
+  // Show target section(s)
+  const targets = SEC_GROUPS[resolved] || [resolved];
+  targets.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('active');
+  });
+  setNavActive(resolved);
+  const main = document.getElementById('main');
+  if (main) main.scrollTop = 0;
   if (window.innerWidth <= 768) closeSidebar();
 }
 
@@ -2613,21 +2622,8 @@ async function init() {
   await refreshAll();
   await Promise.allSettled([loadHome(), loadHomeEnriched(), loadAnalytics(), loadAnalyticsFull(), loadTruth(), loadLearning(), loadCRM(), loadMarketplace()]);
 
-  // IntersectionObserver — atualiza nav ativo ao rolar dentro de #main
-  const mainEl = document.getElementById('main');
-  if (mainEl && 'IntersectionObserver' in window) {
-    const io = new IntersectionObserver((entries) => {
-      // Pega a seção mais visível
-      const visible = entries.filter(e => e.isIntersecting)
-        .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-      if (visible.length) setNavActive(visible[0].target.id);
-    }, { root: mainEl, threshold: 0.25 });
-
-    Object.keys(SEC_TO_NAV).forEach(id => {
-      const el = document.getElementById(id);
-      if (el) io.observe(el);
-    });
-  }
+  // Show home section on load
+  navTo('sec-home');
 
   // Connection health check only — data refreshes handled by checkDbMtime below
   setInterval(checkConnection, 30_000);
