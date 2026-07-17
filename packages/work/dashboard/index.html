@@ -5238,6 +5238,22 @@ async function rdaRefreshAgents() {
     if (jobsRes.ok) {
       _rdaJobs = await jobsRes.json();
       rdaRenderJobs();
+
+      // Load output for the 5 most recent jobs that don't have it yet
+      // (output only exists in-memory during live WS session; rebuild from stored events)
+      const toLoad = _rdaJobs.filter(j => !j.output).slice(0, 5);
+      await Promise.all(toLoad.map(async (job) => {
+        try {
+          const evRes = await fetch(`${API}/api/rda/jobs/${job.id}/events`);
+          if (!evRes.ok) return;
+          const events = await evRes.json();
+          const text = events
+            .filter(ev => ev.event_type === 'stream_chunk' && ev.payload?.content)
+            .map(ev => ev.payload.content)
+            .join('');
+          if (text) { job.output = text; rdaRenderJobs(); }
+        } catch {}
+      }));
     }
   } catch {}
 }
