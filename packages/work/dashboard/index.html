@@ -517,7 +517,11 @@
               <i data-lucide="check-circle-2" style="width:12px;height:12px;color:#86efac"></i>
               Últimas Candidaturas
             </div>
-            <button onclick="navTo('sec-table')" class="text-xs text-blue-400 hover:text-blue-300 transition">Ver todas →</button>
+            <div class="flex items-center gap-3">
+              <span id="home-recent-updated" class="text-xs text-gray-600 font-mono"></span>
+              <button onclick="loadHome()" class="text-xs text-gray-600 hover:text-gray-400 transition">↻</button>
+              <button onclick="navTo('sec-table')" class="text-xs text-blue-400 hover:text-blue-300 transition">Ver todas →</button>
+            </div>
           </div>
           <div id="home-recent-apps">
             <div class="empty-state py-3 text-xs"><span class="spinner"></span> Carregando...</div>
@@ -2668,6 +2672,7 @@ async function init() {
 
   // Connection health check only — data refreshes handled by checkDbMtime below
   setInterval(checkConnection, 30_000);
+  startHomeAutoRefresh();
 
   // Polling adaptativo por db-mtime — detecta mudanças no DB e atualiza em ≤5s
   let _lastMtime = 0;
@@ -3422,14 +3427,19 @@ async function loadHome() {
 
   // Últimas candidaturas aplicadas
   try {
-    const r2 = await fetch(`${API}/api/work/applications?status=applied&limit=5`);
+    const r2 = await fetch(`${API}/api/work/applications?status=applied`);
     const rows = await r2.json();
     const el = $('home-recent-apps');
+    const updEl = $('home-recent-updated');
+    const nowStr = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+    if (updEl) updEl.textContent = `atualizado ${nowStr}`;
     if (!Array.isArray(rows) || !rows.length) {
       el.innerHTML = '<div class="empty-state py-4 text-xs">Nenhuma candidatura enviada ainda</div>';
       return;
     }
-    el.innerHTML = rows.slice(0, 5).map(row => {
+    // Ordena por applied_at desc e pega as 5 mais recentes
+    const sorted = rows.sort((a, b) => new Date(b.applied_at || b.updated_at || 0).getTime() - new Date(a.applied_at || a.updated_at || 0).getTime());
+    el.innerHTML = sorted.slice(0, 5).map(row => {
       const plat = row.platform || 'LinkedIn';
       const pCol = plat === 'LinkedIn' ? '#0ea5e9' : plat === 'Gupy' ? '#a78bfa' : '#fb923c';
       const dt = row.applied_at
@@ -3455,6 +3465,16 @@ async function loadHome() {
       </div>`;
     }).join('');
   } catch { /* silent */ }
+}
+
+// Auto-refresh da home a cada 2 minutos quando na sec-home
+let _homeRefreshTimer = null;
+function startHomeAutoRefresh() {
+  if (_homeRefreshTimer) return;
+  _homeRefreshTimer = setInterval(() => {
+    const homeEl = document.getElementById('sec-home');
+    if (homeEl && homeEl.classList.contains('active')) loadHome();
+  }, 120_000);
 }
 
 // ══ EXPLAIN MODAL ════════════════════════════════════════════════════════════
