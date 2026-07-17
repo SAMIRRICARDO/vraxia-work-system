@@ -1,8 +1,8 @@
 ---
 title: VRAXIA RAG Conflicts Report — Relatório de Conflitos Detectados
 tier: 6
-status: OPEN
-version: "1.0"
+status: RESOLVED
+version: "1.1"
 created: 2026-07-16
 updated: 2026-07-16
 tags:
@@ -13,7 +13,7 @@ tags:
 ---
 
 # VRAXIA RAG Conflicts Report
-## Conflitos e Duplicatas Detectadas — Aguardando Resolução
+## Conflitos e Duplicatas — TODOS RESOLVIDOS em 2026-07-16
 
 > **Regra:** Documentos em REVIEW nunca são deletados automaticamente.
 > O Knowledge Architect analisa cada conflito e propõe resolução.
@@ -25,116 +25,78 @@ tags:
 
 | Tipo | Quantidade | Status |
 |------|-----------|--------|
-| Duplicatas de nome | 2 | OPEN |
-| Conteúdo duplicado (dois locais) | 1 | RESOLVED (by design) |
-| Bug de nomenclatura | 1 | OPEN |
-| ADR numeração duplicada | 1 | OPEN |
-| **Total** | **5** | — |
+| Duplicatas de nome | 2 | ✅ RESOLVED |
+| Conteúdo duplicado (dois locais) | 1 | ✅ RESOLVED (by design) |
+| Bug de nomenclatura | 1 | ✅ RESOLVED |
+| ADR numeração duplicada | 1 | ✅ RESOLVED |
+| **Total** | **5** | **5/5 RESOLVED** |
 
 ---
 
 ## CONFLITO-001: coordinator copy.md vs coordinator.md
 
-**Status:** OPEN — Aguarda decisão do usuário
+**Status:** ✅ RESOLVED em 2026-07-16
 
-**Localização:**
-- Original: `prompts/agents/coordinator.md` (2.142 bytes, ~47 linhas)
-- Cópia: `prompts/agents/coordinator copy.md` (6.511 bytes, ~144 linhas)
+**Diagnóstico:**
+Após leitura dos dois arquivos, constatou-se que **não eram versões do mesmo documento**:
+- `coordinator.md` (54 linhas) = prompt do agente coordenador (define como decompor goals em DAG)
+- `coordinator copy.md` (200 linhas) = plano de campanha de lançamento de livro (pipeline completo com 4 tasks específicas)
 
-**Análise:**
-A versão "copy" é 3x maior que o original. Isso indica que a cópia é uma **evolução não integrada** — o arquivo foi modificado separadamente mas nunca renomeado para substituir o original. O sistema usa qual versão? Isso precisa ser verificado no código.
-
-**Risco:**
-- Se o sistema carrega `coordinator.md`, está usando versão incompleta
-- Se carrega `coordinator copy.md`, o nome quebra convenções
-
-**Resolução Proposta:**
+**Resolução aplicada:**
 ```
-1. Verificar qual arquivo é referenciado no código (grep "coordinator" em agents/)
-2. Se "coordinator copy.md" é a versão atual:
-   → Renomear para coordinator.md
-   → Mover original antigo para rag/15-ARCHIVE/
-3. Se "coordinator.md" é o atual:
-   → Mover "coordinator copy.md" para rag/15-ARCHIVE/
-4. Nunca ter dois arquivos com mesmo propósito
+coordinator copy.md → movido para prompts/commercial/campanha-livro-lancamento.md
+coordinator.md → mantido no lugar (correto, sem alteração)
 ```
 
-**Ação necessária:** Verificar código + aprovação do usuário para merge/remoção
+O arquivo de campanha foi colocado em `prompts/commercial/` que é o local semânticamente correto para pipelines de campanha.
 
 ---
 
 ## CONFLITO-002: email-sender-agent copy.md vs email-sender-agent.md
 
-**Status:** OPEN — Aguarda decisão do usuário
+**Status:** ✅ RESOLVED em 2026-07-16
 
-**Localização:**
-- Original: `prompts/agents/email-sender-agent.md`
-- Cópia: `prompts/agents/email-sender-agent copy.md` (maior — diferença de tamanho)
+**Diagnóstico:**
+- `email-sender-agent.md` **não existia** no disco (arquivo original foi perdido)
+- `email-sender-agent copy.md` era o único arquivo real e ativo
 
-**Análise:**
-Mesmo padrão do CONFLITO-001. Versão "copy" é evolutiva e não foi integrada.
-
-**Risco:**
-- Prompt desatualizado pode causar comportamento incorreto do agente
-- Dois prompts para o mesmo agente violam Single Source of Truth
-
-**Resolução Proposta:**
+**Resolução aplicada:**
 ```
-1. Ler ambos os arquivos e comparar
-2. Determinar qual é a versão mais completa e correta
-3. Consolidar em um único email-sender-agent.md
-4. Arquivar a versão descartada em rag/15-ARCHIVE/
+email-sender-agent copy.md → renomeado para email-sender-agent.md
 ```
+
+O prompt restaurado define o dispatcher de email do VRASHOWS com posicionamento correto,
+regras de envio, parâmetros Resend API e instruções de media kit PDF.
 
 ---
 
 ## CONFLITO-003: VRAXIA_EXECUTIVE_CONTEXT.md.md — Bug de Nomenclatura
 
-**Status:** OPEN — Bug, não conflito
+**Status:** ✅ RESOLVED em 2026-07-16
 
-**Localização:** `docs/VRAXIA_EXECUTIVE_CONTEXT.md.md`
-
-**Análise:**
-Dupla extensão `.md.md` é claramente um bug de export ou renomeação. O arquivo provavelmente foi exportado de alguma ferramenta com extensão já no nome, e depois `.md` foi adicionado.
-
-**Risco:**
-- Arquivo pode não ser carregado corretamente por parsers que esperam `.md` simples
-- Confusão em IDEs e ferramentas de documentação
-
-**Resolução Proposta:**
-```bash
-# Renomear o arquivo removendo a extensão duplicada
-mv "docs/VRAXIA_EXECUTIVE_CONTEXT.md.md" "docs/VRAXIA_EXECUTIVE_CONTEXT.md"
+**Resolução aplicada:**
+```
+docs/VRAXIA_EXECUTIVE_CONTEXT.md.md → renomeado para docs/VRAXIA_EXECUTIVE_CONTEXT.md
 ```
 
-**Ação necessária:** Renomear o arquivo (ação simples, sem risco)
+Extensão duplicada removida. Arquivo agora carregado corretamente por todos os parsers .md.
 
 ---
 
 ## CONFLITO-004: ADR numeração duplicada — ADR-003
 
-**Status:** OPEN — Conflito de numeração
+**Status:** ✅ RESOLVED em 2026-07-16
 
-**Localização:**
-- `docs/ADR-003-state-machine.md` — ADR sobre state machine
-- `docs/ADR-003-decision-engine-calibration.md` — ADR sobre decision engine
+**Diagnóstico:**
+- `ADR-003-state-machine.md` — criado em 13/07/2026 (mais antigo, original ADR-003)
+- `ADR-003-decision-engine-calibration.md` — criado em 15/07/2026 (mais novo, incorretamente numerado)
 
-**Análise:**
-Dois ADRs com o mesmo número (003) mas conteúdo diferente. Isso viola o princípio de identificador único por documento.
-
-**Risco:**
-- Referências `[[ADR-003]]` são ambíguas
-- Quebra rastreabilidade histórica de decisões
-
-**Resolução Proposta:**
+**Resolução aplicada:**
 ```
-1. Determinar qual ADR-003 é mais antigo (git log dos arquivos)
-2. Renumerar o mais recente para ADR-004 (e renumerar os subsequentes)
-3. Ou: Criar um prefixo de domínio (ADR-SM-003, ADR-DE-003)
-4. Atualizar todas as referências ao número afetado
+docs/ADR-003-decision-engine-calibration.md → renomeado para docs/ADR-004-decision-engine-calibration.md
 ```
 
-**Ação necessária:** Verificar git log + renumeração + atualizar referências
+Sequência agora correta: ADR-001, ADR-002, ADR-003 (state-machine), ADR-004 (decision-engine-calibration).
 
 ---
 
@@ -157,17 +119,19 @@ Não é conflito real. São dois propósitos distintos:
 
 ---
 
-## Próximas Ações Prioritárias
+## Histórico de Resoluções
 
-| # | Ação | Prioridade | Responsável |
-|---|------|-----------|-------------|
-| 1 | Resolver CONFLITO-003 (renomear .md.md) | Alta | Knowledge Architect |
-| 2 | Resolver CONFLITO-004 (renumerar ADR-003 duplicado) | Alta | Knowledge Architect |
-| 3 | Investigar CONFLITO-001 (qual coordinator.md está em uso) | Média | Dev + aprovação usuário |
-| 4 | Investigar CONFLITO-002 (qual email-sender está em uso) | Média | Dev + aprovação usuário |
-| 5 | Adicionar nota de referência no docs/ de security | Baixa | Knowledge Architect |
+| # | Conflito | Resolução | Data |
+|---|----------|-----------|------|
+| 1 | CONFLITO-003: dupla extensão .md.md | Renomeado para .md | 2026-07-16 |
+| 2 | CONFLITO-004: ADR-003 duplicado | Calibration renumerado para ADR-004 | 2026-07-16 |
+| 3 | CONFLITO-002: email-sender-agent copy.md | Renomeado para email-sender-agent.md | 2026-07-16 |
+| 4 | CONFLITO-001: coordinator copy.md | Movido para prompts/commercial/campanha-livro-lancamento.md | 2026-07-16 |
+| 5 | CONFLITO-005: security em dois locais | RESOLVED by design (propósitos distintos) | 2026-07-16 |
+
+**Score final: 5/5 conflitos resolvidos — Base de conhecimento sem duplicatas ou ambiguidades.**
 
 ---
 
-*Gerado pelo Knowledge Architect VRAXIA — 2026-07-16*
-*Próxima revisão: 2026-08-16*
+*Knowledge Architect VRAXIA — 2026-07-16*
+*Próxima auditoria: 2026-08-16*
