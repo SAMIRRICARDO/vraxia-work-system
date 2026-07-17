@@ -126,3 +126,4 @@ packages/work/.vraxia-work/
 # ==========================================
 .vscode/
 .idea/
+.vercel

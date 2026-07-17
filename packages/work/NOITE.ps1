@@ -130,9 +130,8 @@ function Test-LinkedInSession {
         return $false
     }
     $age = (Get-Date) - (Get-Item $cookiesPath).LastWriteTime
-    if ($age.TotalDays -gt 14) {
-        Log "WARN: Sessão com mais de 14 dias — provavelmente expirada." Yellow
-        return $false
+    if ($age.TotalDays -gt 30) {
+        Log "WARN: Arquivo de sessão com $([math]::Round($age.TotalDays)) dias — verificando li_at na sequência." Yellow
     }
     # Verificação leve: testa se o cookie 'li_at' existe (token de sessão LinkedIn)
     try {
@@ -149,7 +148,7 @@ function Test-LinkedInSession {
                 Log "WARN: Cookie li_at expirado em $($expDate.ToString('dd/MM/yyyy HH:mm'))." Yellow
                 return $false
             }
-            Log "Sessão válida até $($expDate.ToString('dd/MM/yyyy HH:mm'))." Green
+            Log "Sessão válida até $($expDate.ToString('dd/MM/yyyy HH:mm')) (arquivo: $([math]::Round($age.TotalDays, 1))d)." Green
         }
         return $true
     } catch {
