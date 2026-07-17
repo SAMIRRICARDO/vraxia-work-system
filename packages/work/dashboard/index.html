@@ -141,18 +141,6 @@
     .error-cat-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);}
     .error-cat-row:last-child{border-bottom:none;}
 
-    /* ── Chat footer ──────────────────────────────────────────────────── */
-    #chat-footer{position:fixed;bottom:0;left:240px;right:0;z-index:100;background:rgba(0,0,0,.9);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,.06);padding:12px 20px;display:flex;gap:10px;align-items:center;}
-    #chat-input{flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:10px 16px;color:#e5e7eb;font-size:13px;outline:none;transition:border-color .2s;font-family:'Outfit',sans-serif;}
-    #chat-input:focus{border-color:rgba(96,165,250,.4);}
-    #chat-input::placeholder{color:#4b5563;}
-    #chat-bubble{position:fixed;bottom:80px;right:20px;left:260px;z-index:99;max-height:280px;overflow-y:auto;background:rgba(5,8,16,.97);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:16px;font-size:13px;display:none;box-shadow:0 -8px 32px rgba(0,0,0,.6);}
-    .chat-msg-user{color:#93c5fd;margin-bottom:10px;padding:8px 12px;background:rgba(59,130,246,.08);border-radius:10px;}
-    .chat-msg-ai{color:#d1d5db;margin-bottom:10px;line-height:1.6;}
-    .chat-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
-    .chat-action-btn{font-size:11px;padding:4px 10px;border-radius:20px;background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.25);color:#93c5fd;cursor:pointer;transition:background .2s;}
-    .chat-action-btn:hover{background:rgba(96,165,250,.2);}
-    @media(max-width:768px){#chat-footer{left:0;}#chat-bubble{left:0;right:0;}}
 
     /* ── Explain modal ────────────────────────────────────────────────── */
     #explain-modal{display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);align-items:center;justify-content:center;}
@@ -499,27 +487,41 @@
         </button>
       </div>
 
-      <!-- Remote Dev quick panel -->
-      <div class="glass rounded-2xl p-4 mb-5 border border-purple-500/15" style="background:rgba(124,58,237,.03)">
-        <div class="flex items-center justify-between mb-3">
+      <!-- Remote Dev Agent panel (home) -->
+      <div class="glass rounded-2xl border border-purple-500/20 mb-5" style="background:rgba(124,58,237,.04)">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-4 pt-4 pb-3 border-b border-white/5">
           <div class="flex items-center gap-2">
+            <span class="live-dot" id="home-rda-dot" style="background:#6b7280;box-shadow:none;animation:none"></span>
             <i data-lucide="terminal" style="width:14px;height:14px;color:#a78bfa"></i>
-            <span class="text-xs font-mono text-purple-400 uppercase tracking-widest font-semibold">Remote Dev Agent</span>
+            <span class="text-sm font-semibold text-purple-300">Remote Dev Agent</span>
             <span class="badge badge-purple" id="home-rda-badge" style="font-size:9px;">—</span>
           </div>
-          <button onclick="navTo('sec-remote-dev')" class="text-xs text-purple-400 hover:text-purple-300 transition">Abrir →</button>
+          <button onclick="navTo('sec-remote-dev')" class="text-xs text-purple-400 hover:text-purple-300 transition font-mono">Abrir completo →</button>
         </div>
-        <div class="flex gap-3 items-end">
+
+        <!-- Send bar -->
+        <div class="flex gap-3 items-end px-4 py-3">
           <textarea id="home-rda-prompt" rows="2"
-            placeholder="Peça algo ao agente... ex: quais arquivos foram modificados hoje?"
-            class="flex-1 bg-black/40 border border-white/8 rounded-xl px-3 py-2 text-xs text-gray-200 outline-none focus:border-purple-400/40 resize-none font-mono transition"
+            placeholder="Descreva a tarefa... (Ctrl+Enter para enviar)"
+            class="flex-1 bg-black/40 border border-white/8 rounded-xl px-3 py-2 text-xs text-gray-200 outline-none focus:border-purple-400/40 resize-none transition"
             style="font-family:'JetBrains Mono',monospace;"
             onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){homeRdaSubmit();event.preventDefault();}"></textarea>
-          <button onclick="homeRdaSubmit()" class="btn text-xs flex-shrink-0" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;align-self:flex-end;">
+          <button onclick="homeRdaSubmit()" id="home-rda-btn" class="btn text-xs flex-shrink-0" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;align-self:flex-end;min-width:72px;">
             <i data-lucide="send" style="width:12px;height:12px"></i> Enviar
           </button>
         </div>
-        <div id="home-rda-output" class="mt-2 text-xs font-mono text-green-300 bg-black/30 rounded-lg px-3 py-2 hidden" style="max-height:120px;overflow-y:auto;white-space:pre-wrap;line-height:1.6;"></div>
+
+        <!-- Live output for current job -->
+        <div id="home-rda-output" class="mx-4 mb-3 text-xs font-mono text-green-300 bg-black/40 rounded-xl px-3 py-2.5 hidden" style="max-height:140px;overflow-y:auto;white-space:pre-wrap;line-height:1.6;border:1px solid rgba(255,255,255,.05);"></div>
+
+        <!-- Job history with responses -->
+        <div class="px-4 pb-4">
+          <div class="text-xs font-mono text-gray-600 uppercase tracking-widest mb-2">Histórico de Jobs</div>
+          <div id="home-rda-jobs" class="flex flex-col gap-2">
+            <div class="text-xs text-gray-700 text-center py-2 font-mono">Nenhum job ainda</div>
+          </div>
+        </div>
       </div>
 
       <!-- Bottom 2-col: Oportunidades + Últimas Candidaturas -->
@@ -1194,7 +1196,7 @@
                   <input type="checkbox" id="perm-tests" checked class="accent-purple-500"> Rodar testes
                 </label>
                 <label class="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
-                  <input type="checkbox" id="perm-commit" class="accent-purple-500"> Git commit
+                  <input type="checkbox" id="perm-commit" checked class="accent-purple-500"> Git commit
                 </label>
                 <label class="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
                   <input type="checkbox" id="perm-deploy" class="accent-purple-500"> Deploy
@@ -1737,19 +1739,6 @@
 </div>
 
 <!-- ══ CHAT FOOTER ══════════════════════════════════════════════════════════ -->
-<div id="chat-footer">
-  <div style="font-size:11px;color:#4b5563;white-space:nowrap;font-family:'JetBrains Mono',monospace;">⚡ Career OS</div>
-  <input id="chat-input" type="text" placeholder="Pergunte algo… ex: buscar vagas, preparar entrevista, analytics"
-    onkeydown="if(event.key==='Enter')sendChat()" />
-  <button onclick="sendChat()" class="btn btn-primary" style="padding:9px 16px;flex-shrink:0;">
-    <i data-lucide="send" style="width:14px;height:14px"></i>
-  </button>
-</div>
-
-<!-- Chat response bubble -->
-<div id="chat-bubble">
-  <div id="chat-history"></div>
-</div>
 
 <script>
 // ══ CONFIG ════════════════════════════════════════════════════════════════════
@@ -3886,47 +3875,7 @@ async function loadAnalytics() {
   }
 }
 
-// ══ CHAT ═════════════════════════════════════════════════════════════════════
-let chatVisible = false;
-
-async function sendChat() {
-  const input = $('chat-input');
-  const msg   = input.value.trim();
-  if (!msg) return;
-  input.value = '';
-
-  const bubble  = $('chat-bubble');
-  const history = $('chat-history');
-
-  bubble.style.display = 'block';
-  chatVisible = true;
-
-  history.innerHTML += `<div class="chat-msg-user">💬 ${esc(msg)}</div>`;
-  history.innerHTML += `<div class="chat-msg-ai" id="chat-thinking"><span class="spinner"></span> Processando...</div>`;
-  bubble.scrollTop = bubble.scrollHeight;
-
-  try {
-    const r = await fetch(`${API}/api/work/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: msg }),
-    });
-    const d = await r.json();
-    const thinking = $('chat-thinking');
-    if (thinking) thinking.remove();
-    history.innerHTML += `
-      <div class="chat-msg-ai">${esc(d.reply || 'Sem resposta')}</div>
-      ${d.actions?.length ? `<div class="chat-actions">${d.actions.slice(0,4).map(a =>
-        `<button class="chat-action-btn" onclick="handleChatAction('${esc(a.action)}')">${esc(a.label)}</button>`
-      ).join('')}</div>` : ''}
-    `;
-  } catch {
-    const thinking = $('chat-thinking');
-    if (thinking) thinking.remove();
-    history.innerHTML += `<div class="chat-msg-ai" style="color:#fca5a5;">⚠️ API offline — Chat não disponível no modo estático.</div>`;
-  }
-  bubble.scrollTop = bubble.scrollHeight;
-}
+// ══ CHAT ACTIONS (used by marketplace) ═══════════════════════════════════════
 
 function handleChatAction(action) {
   if (action.startsWith('nav:')) { navTo('sec-' + action.split(':')[1]); return; }
@@ -5182,7 +5131,7 @@ async function rdaSubmitJob() {
   const permissions = {
     editFiles: $('perm-edit')?.checked   ?? true,
     runTests:  $('perm-tests')?.checked  ?? true,
-    commit:    $('perm-commit')?.checked ?? false,
+    commit:    $('perm-commit')?.checked ?? true,
     deploy:    $('perm-deploy')?.checked ?? false,
     docker:    false,
     terminal:  $('perm-terminal')?.checked ?? false,
@@ -5227,21 +5176,28 @@ async function rdaRefreshAgents() {
 
     if (healthRes.ok) {
       const h = await healthRes.json();
+      const online = h.agents_online > 0;
+      const badgeText = online ? `${h.agents_online} agente${h.agents_online > 1 ? 's' : ''} online` : 'Nenhum agente';
+      const badgeCls  = online ? 'badge badge-green' : 'badge badge-gray';
+
       const badge = $('rda-agent-badge');
-      if (badge) {
-        if (h.agents_online > 0) {
-          badge.textContent = `${h.agents_online} agente${h.agents_online > 1 ? 's' : ''} online`;
-          badge.className = 'badge badge-green';
-        } else {
-          badge.textContent = 'Nenhum agente';
-          badge.className = 'badge badge-gray';
-        }
+      if (badge) { badge.textContent = badgeText; badge.className = badgeCls; }
+
+      // Sync home panel badge + status dot
+      const homeBadge = $('home-rda-badge');
+      if (homeBadge) { homeBadge.textContent = badgeText; homeBadge.className = badgeCls; }
+      const homeDot = $('home-rda-dot');
+      if (homeDot) {
+        homeDot.style.background = online ? '#22c55e' : '#6b7280';
+        homeDot.style.boxShadow  = online ? '0 0 6px rgba(34,197,94,.7)' : 'none';
+        homeDot.style.animation  = online ? '' : 'none';
       }
     }
 
     if (jobsRes.ok) {
       _rdaJobs = await jobsRes.json();
       rdaRenderJobs();
+      homeRdaRenderJobs();
 
       // Load output for the 5 most recent jobs that don't have it yet
       // (output only exists in-memory during live WS session; rebuild from stored events)
@@ -5255,7 +5211,7 @@ async function rdaRefreshAgents() {
             .filter(ev => ev.type === 'stream_chunk')
             .map(ev => { try { return JSON.parse(ev.payload || '{}').content || ''; } catch { return ''; } })
             .join('');
-          if (text) { job.output = text; rdaRenderJobs(); }
+          if (text) { job.output = text; rdaRenderJobs(); homeRdaRenderJobs(); }
         } catch {}
       }));
     }
@@ -5267,6 +5223,7 @@ async function rdaRefreshAgents() {
 async function homeRdaSubmit() {
   const promptEl = $('home-rda-prompt');
   const outputEl = $('home-rda-output');
+  const btn      = $('home-rda-btn');
   const prompt   = (promptEl?.value || '').trim();
   if (!prompt) return;
 
@@ -5278,9 +5235,11 @@ async function homeRdaSubmit() {
     return;
   }
 
+  // Reset live output for new job
   outputEl.style.display = 'block';
   outputEl.style.color   = '#a78bfa';
   outputEl.textContent   = 'Enviando...';
+  if (btn) btn.disabled = true;
 
   try {
     const r = await fetch(`${API}/api/rda/jobs`, {
@@ -5298,34 +5257,69 @@ async function homeRdaSubmit() {
     const { job } = await r.json();
     _rdaCurrentJob = job.id;
     _rdaJobs.unshift(job);
-    outputEl.style.color = '#4ade80';
-    outputEl.textContent = `[JOB ${job.id.slice(0,8)}] Aguardando resposta...`;
+    outputEl.textContent = `[JOB ${job.id.slice(0,8)}] Aguardando resposta do agente...`;
     promptEl.value = '';
+    homeRdaRenderJobs();
   } catch (e) {
     outputEl.style.color = '#f87171';
     outputEl.textContent = `[ERRO] ${e.message}`;
+  } finally {
+    if (btn) btn.disabled = false;
   }
+}
+
+// ── Home RDA job list renderer ───────────────────────────────────────────────
+function homeRdaRenderJobs() {
+  const el = $('home-rda-jobs');
+  if (!el) return;
+  if (!_rdaJobs.length) {
+    el.innerHTML = '<div class="text-xs text-gray-700 text-center py-2 font-mono">Nenhum job ainda</div>';
+    return;
+  }
+  const statusColor = { queued:'gray', preparing:'cyan', analyzing:'blue', planning:'blue', editing:'purple', testing:'yellow', completed:'green', error:'red', cancelled:'gray' };
+  el.innerHTML = _rdaJobs.slice(0, 8).map(j => {
+    const isActive   = _rdaCurrentJob === j.id;
+    const outputTxt  = (j.output || '').trim();
+    const snippet    = outputTxt.length > 500 ? '…' + outputTxt.slice(-500) : outputTxt;
+    return `
+    <div class="rounded-xl border transition ${isActive ? 'border-purple-400/40 bg-purple-900/10' : 'border-white/5 bg-black/20 hover:border-purple-400/15'}" style="overflow:hidden;">
+      <div class="flex items-center justify-between px-3 pt-2.5 pb-1.5">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="badge badge-${statusColor[j.status] || 'gray'}" style="font-size:9px;flex-shrink:0;">${j.status}</span>
+          <span class="text-xs text-gray-300 font-mono truncate" title="${esc(j.prompt || '')}">${esc(j.prompt ? j.prompt.slice(0,70) : '—')}</span>
+        </div>
+        <span class="text-xs text-gray-700 font-mono flex-shrink-0 ml-2">${j.id.slice(0,8)}</span>
+      </div>
+      ${snippet ? `<div class="px-3 pb-2.5">
+        <div class="font-mono text-green-300/80 bg-black/50 rounded-lg px-2.5 py-2 whitespace-pre-wrap leading-relaxed border border-white/5" style="font-size:10px;max-height:180px;overflow-y:auto;">${esc(snippet)}</div>
+      </div>` : ''}
+    </div>`;
+  }).join('');
 }
 
 // Intercept job events and also update home panel
 const _origHandleJobEvent = rdaHandleJobEvent;
 function rdaHandleJobEventWithHome(payload) {
   _origHandleJobEvent(payload);
+  homeRdaRenderJobs();
   const { jobId, eventType, payload: evPayload } = payload;
   if (jobId !== _rdaCurrentJob) return;
   const outputEl = $('home-rda-output');
-  if (!outputEl || outputEl.style.display === 'none') return;
+  if (!outputEl) return;
 
   if (eventType === 'stream_chunk') {
     const { type, content } = evPayload;
     if (type === 'output' || type === 'stdout') {
+      outputEl.style.display = 'block';
       outputEl.style.color = '#4ade80';
       outputEl.textContent += content;
       outputEl.scrollTop = outputEl.scrollHeight;
     }
   }
-  if (eventType === 'status_change' && (evPayload.status === 'completed' || evPayload.status === 'error')) {
-    outputEl.style.color = evPayload.status === 'completed' ? '#22d3ee' : '#f87171';
+  if (eventType === 'status_change') {
+    const s = evPayload.status;
+    if (s === 'completed') { outputEl.style.color = '#22d3ee'; homeRdaRenderJobs(); }
+    if (s === 'error')     { outputEl.style.color = '#f87171'; homeRdaRenderJobs(); }
   }
 }
 

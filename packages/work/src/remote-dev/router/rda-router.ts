@@ -79,7 +79,7 @@ export function createRdaRouter(): Router {
         res.status(400).json({ error: 'deviceId and prompt required' }); return;
       }
       body.permissions = body.permissions ?? {
-        editFiles: true, runTests: true, commit: false,
+        editFiles: true, runTests: true, commit: true,
         deploy: false, docker: false, terminal: false,
       };
 

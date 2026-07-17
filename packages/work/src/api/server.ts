@@ -26,6 +26,9 @@ import { SalaryAdvisor } from '../agents/SalaryAdvisor.js';
 import { LearningAgent } from '../agents/LearningAgent.js';
 import { NetworkingAgent } from '../agents/NetworkingAgent.js';
 import { VaultRetriever } from '../rag/retriever.js';
+import { CandidateKBLoader } from '../rag/candidate-kb-loader.js';
+import { CandidateKBRetriever } from '../rag/candidate-kb-retriever.js';
+import { CandidateProfileLoader } from '../rag/candidate-profile-loader.js';
 import { AgentRegistry } from '../marketplace/registry.js';
 import { sendServerStartup } from '../notifications/telegram.js';
 import { createRdaRouter, initRdaWsServer } from '../remote-dev/index.js';
@@ -44,6 +47,12 @@ import('../application/ApplicationRepository.js')
 let _memory: CareerMemory | null = null;
 let _networking: NetworkingAgent | null = null;
 let _registry: AgentRegistry | null = null;
+let _chatKB: CandidateKBRetriever | null = null;
+let _chatProfileLoaded = false;
+let _chatProfile: CandidateProfileLoader | null = null;
+
+const KB_PATH   = process.env['CANDIDATE_KB_PATH']  ?? 'C:\\Users\\Administrador\\Desktop\\VRAXIA SYSTEM\\VRAXIA WORK\\candidate-kb';
+const CKOS_PATH = process.env['CANDIDATE_OS_PATH']   ?? 'C:\\Users\\Administrador\\Desktop\\VRAXIA SYSTEM\\VRAXIA WORK\\candidate-os';
 
 async function getMemory(): Promise<CareerMemory> {
   if (!_memory) _memory = await CareerMemory.create();
@@ -56,6 +65,20 @@ async function getNetworking(): Promise<NetworkingAgent> {
 async function getRegistry(): Promise<AgentRegistry> {
   if (!_registry) _registry = await AgentRegistry.create();
   return _registry;
+}
+function getChatKB(): CandidateKBRetriever {
+  if (!_chatKB) {
+    const loader = new CandidateKBLoader(KB_PATH, CKOS_PATH);
+    _chatKB = new CandidateKBRetriever(loader.load());
+  }
+  return _chatKB;
+}
+function getChatProfile(): CandidateProfileLoader | null {
+  if (!_chatProfileLoaded) {
+    _chatProfileLoaded = true;
+    _chatProfile = CandidateProfileLoader.tryLoad(KB_PATH);
+  }
+  return _chatProfile;
 }
 
 const PORT       = 3001;
@@ -571,23 +594,6 @@ app.post('/api/work/chat', async (req: Request, res: Response) => {
       return;
     }
 
-    // Load stats for context
-    let statsCtx = '';
-    try {
-      const sql = await getSQLEngine();
-      if (fs.existsSync(DB_PATH)) {
-        const db = new sql.Database(fs.readFileSync(DB_PATH));
-        const r  = db.exec(`SELECT COUNT(*) as t, SUM(CASE WHEN status='applied' THEN 1 ELSE 0 END) as a FROM job_applications`);
-        db.close();
-        if (r.length) {
-          statsCtx = `Stats: ${r[0].values[0][0]} vagas no DB, ${r[0].values[0][1]} candidaturas enviadas.`;
-        }
-      }
-    } catch { /* ignore */ }
-
-    const { default: Anthropic } = await import('@anthropic-ai/sdk');
-    const client = new Anthropic({ apiKey });
-
     const INTENTS = ['HUNT','RESUME','INTERVIEW','SALARY','ANALYTICS','NETWORK','CAREER','EXPLAIN','SETTINGS'] as const;
     type Intent = typeof INTENTS[number];
 
@@ -603,32 +609,97 @@ app.post('/api/work/chat', async (req: Request, res: Response) => {
       SETTINGS:  [{ label: '⚙️ Hunt Mode', action: 'nav:hunt' }],
     };
 
-    const prompt = `Você é o VRAXIA Career OS, assistente de carreira do Samir Ricardo (Dev fullstack sênior).
-${statsCtx}
+    // ── Camada 1-2: Hard rules + FAQ (zero LLM) ───────────────────────────────
+    let fastAnswer: string | null = null;
+    try {
+      const kb = getChatKB();
+      fastAnswer = kb.lookupHardRule(message) ?? kb.lookupExact(message);
+    } catch { /* CKOS não disponível — continua para LLM */ }
 
-Responda à mensagem do usuário de forma concisa, útil e em português.
-No final retorne JSON assim (na última linha, após dupla quebra de linha):
+    if (fastAnswer) {
+      res.json({ reply: fastAnswer, intent: 'CAREER' as Intent, actions: ACTIONS['CAREER'] });
+      return;
+    }
 
-{"intent":"<${INTENTS.join('|')}>","reply":"<sua resposta>"}
+    // ── Camada 3: RAG (TF-IDF) + Profile SSoT ────────────────────────────────
+    let ragContext = '';
+    let profileCtx = '';
+    try {
+      const kb = getChatKB();
+      const chunks = kb.retrieveContext(message, 6);
+      if (chunks.length) {
+        ragContext = '=== CONHECIMENTO CKOS RELEVANTE ===\n' +
+          chunks.map(c => `[${c.source} > ${c.section}]\n${c.content}`).join('\n\n---\n\n');
+      }
+    } catch { /* ignore */ }
 
-Mensagem do usuário: ${message}`;
+    try {
+      const profile = getChatProfile();
+      if (profile) {
+        const ev = profile.buildEvidenceContext(message);
+        if (ev) profileCtx = '=== EVIDÊNCIAS DO PERFIL ===\n' + ev;
+      }
+    } catch { /* ignore */ }
+
+    // ── DB context: stats + últimas candidaturas ──────────────────────────────
+    let dbCtx = '';
+    try {
+      const sql = await getSQLEngine();
+      if (fs.existsSync(DB_PATH)) {
+        const db = new sql.Database(fs.readFileSync(DB_PATH));
+        const stats = db.exec(`SELECT COUNT(*) as t, SUM(CASE WHEN status='applied' THEN 1 ELSE 0 END) as a FROM job_applications`);
+        const recent = db.exec(`SELECT company, role, status, applied_at FROM job_applications ORDER BY applied_at DESC LIMIT 5`);
+        db.close();
+        if (stats.length) {
+          const [total, applied] = stats[0].values[0] as [number, number];
+          dbCtx = `=== CANDIDATURAS ===\nTotal no DB: ${total} | Enviadas: ${applied}`;
+        }
+        if (recent.length && recent[0].values.length) {
+          dbCtx += '\nÚltimas 5:\n' + recent[0].values
+            .map(r => `  • ${r[1]} @ ${r[0]} — ${r[2]} (${String(r[3] ?? '').slice(0, 10)})`)
+            .join('\n');
+        }
+      }
+    } catch { /* ignore */ }
+
+    // ── Camada 4: LLM com contexto completo ──────────────────────────────────
+    const { default: Anthropic } = await import('@anthropic-ai/sdk');
+    const client = new Anthropic({ apiKey });
+
+    const systemPrompt = `Você é o VRAXIA Career OS — assistente de carreira de Samir Ricardo, desenvolvedor fullstack sênior com foco em IA e automação.
+
+Samir tem experiência com: TypeScript, Node.js, React, Python, Claude/Anthropic SDK, LangChain, RAG, agentes de IA, Redis, PostgreSQL, Docker.
+Ele está em busca ativa de emprego. Seu objetivo é maximizar a probabilidade de entrevistas.
+
+REGRAS:
+- Responda SEMPRE em português, de forma direta e precisa
+- Use os dados do CKOS e do perfil como fonte primária de verdade
+- Nunca invente informações sobre o candidato — use apenas o que está no contexto
+- Se não souber algo, diga claramente
+
+${ragContext ? ragContext + '\n\n' : ''}${profileCtx ? profileCtx + '\n\n' : ''}${dbCtx ? dbCtx + '\n\n' : ''}
+Após sua resposta, retorne na última linha (após duas quebras de linha) o JSON de intent:
+{"intent":"<${INTENTS.join('|')}>","reply":"<texto completo da resposta>"}`;
 
     const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 512,
-      messages: [{ role: 'user', content: prompt }],
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1500,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: message }],
     });
 
     const text  = response.content[0].type === 'text' ? response.content[0].text : '';
-    const match = text.match(/\{[^}]*"intent"[^}]*"reply"[^}]*\}|\{[^}]*"reply"[^}]*"intent"[^}]*\}/);
-    let intent: Intent = 'CAREER';
-    let reply  = text.replace(/\{.*\}$/s, '').trim() || text;
+    const jsonMatch = text.match(/\{"intent"\s*:\s*"[^"]+"\s*,\s*"reply"\s*:\s*"[\s\S]*?"\s*\}(?:\s*)$/) ??
+                      text.match(/\{[^{}]*"intent"[^{}]*"reply"[^{}]*\}/);
 
-    if (match) {
+    let intent: Intent = 'CAREER';
+    let reply = text.replace(/\n\n\{[^{}]*"intent"[^{}]*\}[\s]*$/, '').trim() || text;
+
+    if (jsonMatch) {
       try {
-        const parsed = JSON.parse(match[0]) as { intent: Intent; reply: string };
+        const parsed = JSON.parse(jsonMatch[0]) as { intent: Intent; reply: string };
         intent = INTENTS.includes(parsed.intent) ? parsed.intent : 'CAREER';
-        reply  = parsed.reply || reply;
+        if (parsed.reply) reply = parsed.reply;
       } catch { /* keep defaults */ }
     }
 

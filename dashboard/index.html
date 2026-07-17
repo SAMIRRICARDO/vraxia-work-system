@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VRASHOWS Live Dashboard</title>
+    <style>
+      body { margin: 0; font-family: Inter, system-ui, sans-serif; background:#050816; color:#e2e8f0; }
+      .page { min-height:100vh; padding:24px; max-width:1200px; margin:0 auto; }
+      .header { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; }
+      .title { margin:0; font-size:2.25rem; line-height:1.1; }
+      .subtitle { margin:4px 0 0; color:#94a3b8; }
+      .grid { display:grid; gap:16px; margin-top:24px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
+      .card { background:rgba(15,23,42,.9); border:1px solid rgba(148,163,184,.12); border-radius:18px; padding:20px; }
+      .card h2 { margin:0 0 8px; font-size:0.95rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.08em; }
+      .value { font-size:2rem; font-weight:700; margin:0; }
+      .table { width:100%; border-collapse:collapse; margin-top:12px; }
+      .table th, .table td { text-align:left; padding:10px 8px; border-bottom:1px solid rgba(148,163,184,.12); }
+      .table th { color:#94a3b8; font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; }
+      .footer { margin-top:20px; color:#94a3b8; font-size:.92rem; }
+      .pill { display:inline-flex; padding:6px 12px; border-radius:999px; background:rgba(16,185,129,.12); color:#a7f3d0; font-size:.88rem; }
+      .grid-wide { grid-column: span 2; }
+      @media (max-width: 720px) { .header { flex-direction:column; align-items:flex-start; } .grid-wide { grid-column: span 1; } }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="header">
+        <div>
+          <p class="pill">VRASHOWS Live</p>
+          <h1 class="title">Dashboard em tempo real</h1>
+          <p class="subtitle">Dados ao vivo a partir dos arquivos de log locais.</p>
+        </div>
+        <div id="status-pill" class="pill">Carregando…</div>
+      </div>
+
+      <div class="grid">
+        <div class="card"><h2>Emails enviados hoje</h2><p id="emails-sent-today" class="value">---</p></div>
+        <div class="card"><h2>Total de envios</h2><p id="emails-total" class="value">---</p></div>
+        <div class="card"><h2>Empresas contactadas</h2><p id="companies-contacted" class="value">---</p></div>
+        <div class="card"><h2>Reply rate</h2><p id="reply-rate" class="value">---</p></div>
+        <div class="card"><h2>Delivery success</h2><p id="delivery-success" class="value">---</p></div>
+        <div class="card"><h2>Bounce rate</h2><p id="bounce-rate" class="value">---</p></div>
+        <div class="card"><h2>Custo AI estimado</h2><p id="ai-cost" class="value">---</p></div>
+      </div>
+
+      <div class="grid" style="margin-top:16px;">
+        <div class="card"><h2>Tendência de envio</h2><canvas id="chart-send-trend" height="220"></canvas></div>
+        <div class="card"><h2>Performance</h2><canvas id="chart-performance" height="220"></canvas></div>
+      </div>
+
+      <div class="card grid-wide">
+        <h2>Últimos envios</h2>
+        <table class="table">
+          <thead>
+            <tr><th>Data</th><th>Empresa</th><th>Destino</th><th>Status</th></tr>
+          </thead>
+          <tbody id="recent-sends"></tbody>
+        </table>
+      </div>
+
+      <div class="footer">Atualizado em <span id="updated-at">—</span></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
