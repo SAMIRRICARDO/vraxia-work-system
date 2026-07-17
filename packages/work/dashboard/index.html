@@ -499,6 +499,29 @@
         </button>
       </div>
 
+      <!-- Remote Dev quick panel -->
+      <div class="glass rounded-2xl p-4 mb-5 border border-purple-500/15" style="background:rgba(124,58,237,.03)">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <i data-lucide="terminal" style="width:14px;height:14px;color:#a78bfa"></i>
+            <span class="text-xs font-mono text-purple-400 uppercase tracking-widest font-semibold">Remote Dev Agent</span>
+            <span class="badge badge-purple" id="home-rda-badge" style="font-size:9px;">—</span>
+          </div>
+          <button onclick="navTo('sec-remote-dev')" class="text-xs text-purple-400 hover:text-purple-300 transition">Abrir →</button>
+        </div>
+        <div class="flex gap-3 items-end">
+          <textarea id="home-rda-prompt" rows="2"
+            placeholder="Peça algo ao agente... ex: quais arquivos foram modificados hoje?"
+            class="flex-1 bg-black/40 border border-white/8 rounded-xl px-3 py-2 text-xs text-gray-200 outline-none focus:border-purple-400/40 resize-none font-mono transition"
+            style="font-family:'JetBrains Mono',monospace;"
+            onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){homeRdaSubmit();event.preventDefault();}"></textarea>
+          <button onclick="homeRdaSubmit()" class="btn text-xs flex-shrink-0" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;align-self:flex-end;">
+            <i data-lucide="send" style="width:12px;height:12px"></i> Enviar
+          </button>
+        </div>
+        <div id="home-rda-output" class="mt-2 text-xs font-mono text-green-300 bg-black/30 rounded-lg px-3 py-2 hidden" style="max-height:120px;overflow-y:auto;white-space:pre-wrap;line-height:1.6;"></div>
+      </div>
+
       <!-- Bottom 2-col: Oportunidades + Últimas Candidaturas -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <div>
@@ -4969,7 +4992,7 @@ function rdaConnect() {
     }
 
     if (msg.type === 'job_event') {
-      rdaHandleJobEvent(msg.payload);
+      rdaHandleJobEventWithHome(msg.payload);
       return;
     }
   };
@@ -4978,12 +5001,19 @@ function rdaConnect() {
 // ── Render helpers ───────────────────────────────────────────────────────────
 
 function rdaRenderDevices() {
-  const el = $('rda-devices-list');
+  const el        = $('rda-devices-list');
+  const badge     = $('rda-agent-badge');
+  const homeBadge = $('home-rda-badge');
   if (!el) return;
   const ids = Object.keys(_rdaDevices);
-  if (!ids.length) { el.innerHTML = '<div class="text-xs text-gray-600 text-center py-2">Nenhum</div>'; return; }
-  const badge = $('rda-agent-badge');
-  if (badge) { badge.textContent = `${ids.length} agente${ids.length > 1 ? 's' : ''}`; badge.className = 'badge badge-green'; }
+  if (!ids.length) {
+    el.innerHTML = '<div class="text-xs text-gray-600 text-center py-2">Nenhum</div>';
+    if (badge)     { badge.textContent = 'Nenhum agente'; badge.className = 'badge badge-gray'; }
+    if (homeBadge) { homeBadge.textContent = 'offline';   homeBadge.className = 'badge badge-gray'; }
+    return;
+  }
+  if (badge)     { badge.textContent = `${ids.length} agente${ids.length > 1 ? 's' : ''}`; badge.className = 'badge badge-green'; }
+  if (homeBadge) { homeBadge.textContent = `${ids.length} online`; homeBadge.className = 'badge badge-green'; }
   el.innerHTML = ids.map(id => `
     <div class="flex items-center gap-2 py-1">
       <span class="live-dot" style="width:6px;height:6px;background:#22d3ee;box-shadow:0 0 4px rgba(34,211,238,.6);flex-shrink:0"></span>
@@ -5075,8 +5105,9 @@ function rdaHandleJobEvent({ jobId, eventType, payload }) {
 
   if (eventType === 'stream_chunk') {
     const { type, content } = payload;
-    if (type === 'output') rdaLog(content, '#4ade80');
-    else if (type === 'error') rdaLog(content, '#f87171');
+    if (type === 'output' || type === 'stdout') rdaLog(content, '#4ade80');
+    else if (type === 'error' || type === 'stderr') rdaLog(content, '#f87171');
+    else rdaLog(content, '#9ca3af');
     return;
   }
 
@@ -5178,6 +5209,73 @@ async function rdaRefreshAgents() {
       rdaRenderJobs();
     }
   } catch {}
+}
+
+// ── Home quick-panel ─────────────────────────────────────────────────────────
+
+async function homeRdaSubmit() {
+  const promptEl = $('home-rda-prompt');
+  const outputEl = $('home-rda-output');
+  const prompt   = (promptEl?.value || '').trim();
+  if (!prompt) return;
+
+  const deviceId = Object.keys(_rdaDevices)[0];
+  if (!deviceId) {
+    outputEl.style.display = 'block';
+    outputEl.textContent = '[ERRO] Nenhum agente conectado. Inicie o Desktop Agent.';
+    outputEl.style.color = '#f87171';
+    return;
+  }
+
+  outputEl.style.display = 'block';
+  outputEl.style.color   = '#a78bfa';
+  outputEl.textContent   = 'Enviando...';
+
+  try {
+    const r = await fetch(`${API}/api/rda/jobs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        deviceId,
+        prompt,
+        mode: 'chat',
+        executorId: 'claude-code',
+        projectPath: Object.values(_rdaDevices)[0]?.projects?.[0]?.path || '',
+        permissions: { editFiles: false, runTests: false, commit: false, deploy: false, docker: false, terminal: false },
+      }),
+    });
+    const { job } = await r.json();
+    _rdaCurrentJob = job.id;
+    _rdaJobs.unshift(job);
+    outputEl.style.color = '#4ade80';
+    outputEl.textContent = `[JOB ${job.id.slice(0,8)}] Aguardando resposta...`;
+    promptEl.value = '';
+  } catch (e) {
+    outputEl.style.color = '#f87171';
+    outputEl.textContent = `[ERRO] ${e.message}`;
+  }
+}
+
+// Intercept job events and also update home panel
+const _origHandleJobEvent = rdaHandleJobEvent;
+function rdaHandleJobEventWithHome(payload) {
+  _origHandleJobEvent(payload);
+  const { jobId, eventType, payload: evPayload } = payload;
+  if (jobId !== _rdaCurrentJob) return;
+  const outputEl = $('home-rda-output');
+  if (!outputEl || outputEl.style.display === 'none') return;
+
+  if (eventType === 'stream_chunk') {
+    const { type, content } = evPayload;
+    if (type === 'output' || type === 'stdout') {
+      outputEl.style.color = '#4ade80';
+      outputEl.textContent += content;
+      outputEl.scrollTop = outputEl.scrollHeight;
+    }
+  }
+  if (eventType === 'status_change' && (evPayload.status === 'completed' || evPayload.status === 'error')) {
+    outputEl.style.color = evPayload.status === 'completed' ? '#22d3ee' : '#f87171';
+  }
 }
 
 // ── Start RDA on init ────────────────────────────────────────────────────────

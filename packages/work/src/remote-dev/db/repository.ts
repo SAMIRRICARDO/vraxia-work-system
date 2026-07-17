@@ -20,19 +20,17 @@ async function getEngine(): Promise<SqlJsStatic> {
   return _SQL;
 }
 
-// Opens DB, runs fn (which may write), persists file, closes.
+// Opens DB, runs fn (which may write), persists file.
+// db.close() is intentionally omitted — sql.js WASM triggers UV_HANDLE_CLOSING
+// assertion on Windows when close() is called; GC handles WASM memory instead.
 async function withWriteDb<T>(fn: (db: Database) => T): Promise<T> {
   const engine = await getEngine();
   const buf    = fs.existsSync(DB_PATH) ? fs.readFileSync(DB_PATH) : undefined;
   const db     = buf ? new engine.Database(buf) : new engine.Database();
-  try {
-    const result = fn(db);
-    fs.mkdirSync(WORK_DIR, { recursive: true });
-    fs.writeFileSync(DB_PATH, Buffer.from(db.export()));
-    return result;
-  } finally {
-    db.close();
-  }
+  const result = fn(db);
+  fs.mkdirSync(WORK_DIR, { recursive: true });
+  fs.writeFileSync(DB_PATH, Buffer.from(db.export()));
+  return result;
 }
 
 async function withReadDb<T>(fn: (db: Database) => T): Promise<T | null> {
@@ -40,7 +38,7 @@ async function withReadDb<T>(fn: (db: Database) => T): Promise<T | null> {
   const engine = await getEngine();
   const buf    = fs.readFileSync(DB_PATH);
   const db     = new engine.Database(buf);
-  try { return fn(db); } finally { db.close(); }
+  return fn(db);
 }
 
 function rows(db: Database, sql: string, params: (string | number | null)[] = []): Record<string, unknown>[] {

@@ -37,6 +37,7 @@ export function createRdaRouter(): Router {
   // ── Device registration ───────────────────────────────────────────────────
   router.post('/devices/register', async (req: Request, res: Response) => {
     try {
+      await initRdaSchema();
       const { name, platform, hostname, nodeVersion } = req.body as {
         name: string; platform: string; hostname: string; nodeVersion: string;
       };

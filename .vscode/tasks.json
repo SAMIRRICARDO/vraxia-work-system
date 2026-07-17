@@ -1,0 +1,43 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "VRAXIA: Iniciar Servidor",
+      "type": "shell",
+      "command": "npx tsx src/api/server.ts",
+      "options": { "cwd": "${workspaceFolder}/packages/work" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "vraxia",
+        "label": "VRAXIA SERVER"
+      },
+      "runOptions": { "runOn": "folderOpen" }
+    },
+    {
+      "label": "VRAXIA: Iniciar Desktop Agent",
+      "type": "shell",
+      "command": "Start-Sleep -Seconds 8; npx tsx src/remote-dev/agent/desktop-agent.ts --token 2ec0688b-dea5-4fc9-a909-5091c54f9236-35dc982f-db2d-46ce-8b1d-98b4edd1f8ce",
+      "options": { "cwd": "${workspaceFolder}/packages/work" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "vraxia",
+        "label": "VRAXIA AGENT"
+      },
+      "runOptions": { "runOn": "folderOpen" }
+    },
+    {
+      "label": "VRAXIA: Start All",
+      "dependsOn": ["VRAXIA: Iniciar Servidor", "VRAXIA: Iniciar Desktop Agent"],
+      "dependsOrder": "sequence",
+      "problemMatcher": [],
+      "presentation": { "reveal": "never" },
+      "runOptions": { "runOn": "folderOpen" }
+    }
+  ]
+}

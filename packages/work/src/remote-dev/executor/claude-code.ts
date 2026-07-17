@@ -60,7 +60,7 @@ export class ClaudeCodeExecutor implements Executor {
       this._proc.stdout?.on('data', (data: Buffer) => {
         const text = data.toString();
         outputBuf.push(text);
-        onChunk({ type: 'stdout', content: text, ts: Date.now() });
+        onChunk({ type: 'output', content: text, ts: Date.now() });
 
         // Detect file changes from Claude's output patterns
         const fileMatches = text.matchAll(/(?:Updated|Created|Modified|Wrote) (.+\.\w+)/g);
@@ -78,7 +78,7 @@ export class ClaudeCodeExecutor implements Executor {
       this._proc.stderr?.on('data', (data: Buffer) => {
         const text = data.toString();
         outputBuf.push(text);
-        onChunk({ type: 'stderr', content: text, ts: Date.now() });
+        onChunk({ type: 'error', content: text, ts: Date.now() });
       });
 
       this._proc.on('error', (err) => {
