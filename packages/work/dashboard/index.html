@@ -5066,23 +5066,59 @@ function rdaRenderJobs() {
   if (!el) return;
   if (!_rdaJobs.length) { el.innerHTML = '<div class="text-xs text-gray-600 text-center py-4">Nenhum job ainda</div>'; return; }
   const statusColor = { queued:'gray', preparing:'cyan', analyzing:'blue', planning:'blue', editing:'purple', testing:'yellow', completed:'green', error:'red', cancelled:'gray' };
-  el.innerHTML = _rdaJobs.slice(0, 10).map(j => `
-    <div onclick="rdaSelectJob('${j.id}')" class="glass rounded-xl p-3 cursor-pointer hover:border-purple-400/30 transition border border-white/5 ${_rdaCurrentJob === j.id ? 'border-purple-400/40' : ''}">
-      <div class="flex items-center justify-between mb-1">
-        <span class="badge badge-${statusColor[j.status] || 'gray'}" style="font-size:9px;">${j.status}</span>
-        <span class="text-xs text-gray-600 font-mono">${j.id.slice(0,8)}</span>
+  el.innerHTML = _rdaJobs.slice(0, 10).map(j => {
+    const isActive  = _rdaCurrentJob === j.id;
+    const outputTxt = (j.output || '').trim();
+    // Show last 600 chars of output to keep cards compact
+    const outputSnippet = outputTxt.length > 600 ? '…' + outputTxt.slice(-600) : outputTxt;
+    return `
+    <div class="glass rounded-xl border transition ${isActive ? 'border-purple-400/40' : 'border-white/5 hover:border-purple-400/20'}" style="overflow:hidden;">
+      <div onclick="rdaSelectJob('${j.id}')" class="flex items-center justify-between px-3 pt-2.5 pb-1.5 cursor-pointer">
+        <div class="flex items-center gap-2">
+          <span class="badge badge-${statusColor[j.status] || 'gray'}" style="font-size:9px;">${j.status}</span>
+          <span class="text-xs text-gray-300 font-medium" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(j.prompt || '')}">${esc(j.prompt ? j.prompt.slice(0,60) : '—')}</span>
+        </div>
+        <span class="text-xs text-gray-600 font-mono flex-shrink-0">${j.id.slice(0,8)}</span>
       </div>
-      <div class="text-xs text-gray-400 truncate">${j.prompt ? j.prompt.slice(0,50) : '—'}</div>
-    </div>`).join('');
+      ${outputSnippet ? `
+      <div class="px-3 pb-2.5">
+        <div class="font-mono text-green-300/80 bg-black/40 rounded-lg px-2.5 py-2 whitespace-pre-wrap leading-relaxed border border-white/5" style="font-size:10px;max-height:160px;overflow-y:auto;">${esc(outputSnippet)}</div>
+      </div>` : ''}
+    </div>`;
+  }).join('');
 }
 
 // ── Job handling ─────────────────────────────────────────────────────────────
 
 function rdaHandleJobEvent({ jobId, eventType, payload }) {
-  if (jobId !== _rdaCurrentJob) return;
+  const isActive = jobId === _rdaCurrentJob;
+
+  if (eventType === 'stream_chunk') {
+    const { type, content } = payload;
+    // Accumulate output for ALL jobs (builds the history)
+    const job = _rdaJobs.find(j => j.id === jobId);
+    if (job) {
+      if (!job.output) job.output = '';
+      job.output += content;
+      rdaRenderJobs();
+    }
+    // Show in terminal only for the active job
+    if (isActive) {
+      if (type === 'output' || type === 'stdout') rdaLog(content, '#4ade80');
+      else if (type === 'error' || type === 'stderr') rdaLog(content, '#f87171');
+      else rdaLog(content, '#9ca3af');
+    }
+    return;
+  }
 
   if (eventType === 'status_change') {
     const { status, filesChanged, tokensUsed, durationMs, exitCode } = payload;
+    // Update job in list for all jobs
+    const job = _rdaJobs.find(j => j.id === jobId);
+    if (job) { job.status = status; rdaRenderJobs(); }
+
+    if (!isActive) return;
+
     const badge = $('rda-job-status-badge');
     if (badge) {
       badge.style.display = '';
@@ -5090,18 +5126,11 @@ function rdaHandleJobEvent({ jobId, eventType, payload }) {
       badge.className = `badge badge-${color[status] || 'gray'}`;
       badge.textContent = status;
     }
-
     rdaLog(`[${status.toUpperCase()}]`, status === 'completed' ? '#22d3ee' : status === 'error' ? '#f87171' : '#a78bfa');
-
     if (filesChanged !== undefined) $('rda-m-files').textContent = String(filesChanged);
     if (tokensUsed  !== undefined) $('rda-m-tokens').textContent = tokensUsed.toLocaleString();
     if (durationMs  !== undefined) $('rda-m-dur').textContent   = `${(durationMs/1000).toFixed(1)}s`;
     if (exitCode    !== undefined) $('rda-m-exit').textContent  = String(exitCode);
-
-    // Update job in list
-    const job = _rdaJobs.find(j => j.id === jobId);
-    if (job) { job.status = status; rdaRenderJobs(); }
-
     if (status === 'completed' || status === 'error' || status === 'cancelled') {
       const btn = $('rda-submit-btn');
       if (btn) btn.disabled = false;
@@ -5109,15 +5138,8 @@ function rdaHandleJobEvent({ jobId, eventType, payload }) {
     return;
   }
 
-  if (eventType === 'stream_chunk') {
-    const { type, content } = payload;
-    if (type === 'output' || type === 'stdout') rdaLog(content, '#4ade80');
-    else if (type === 'error' || type === 'stderr') rdaLog(content, '#f87171');
-    else rdaLog(content, '#9ca3af');
-    return;
-  }
-
   if (eventType === 'file_changed') {
+    if (!isActive) return;
     rdaLog(`  ✎ ${payload.file}`, '#93c5fd');
     const cur = parseInt($('rda-m-files').textContent) || 0;
     $('rda-m-files').textContent = String(cur + 1);
@@ -5129,6 +5151,9 @@ function rdaSelectJob(jobId) {
   _rdaCurrentJob = jobId;
   rdaClearOutput();
   rdaLog(`[JOB ${jobId.slice(0,8)}] Selecionado — carregando eventos...`, '#7c3aed');
+  // Reset output so historical replay doesn't double-accumulate
+  const selJob = _rdaJobs.find(j => j.id === jobId);
+  if (selJob) selJob.output = '';
   rdaRenderJobs();
   // Load historical events via SSE polling
   fetch(`${API}/api/rda/jobs/${jobId}/events`)
