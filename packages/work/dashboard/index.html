@@ -869,10 +869,12 @@
       <p class="text-xs text-gray-600 mb-5">Compara o IP predito pelo HireScore Engine com os outcomes reais. Valida a qualidade do modelo de decisão.</p>
 
       <div id="pred-uninitialized" class="hidden">
-        <div class="glass rounded-2xl p-8 text-center">
-          <div style="font-size:32px;margin-bottom:12px;">🎯</div>
-          <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:6px;">Nenhum resultado registrado ainda</div>
-          <div style="font-size:12px;color:#6b7280;">Registre outcomes das candidaturas para calibrar o modelo de predição.</div>
+        <div class="glass rounded-2xl p-5 mb-4">
+          <div style="font-size:10px;color:#6b7280;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">🎯 Distribuição de IP Predito — HireScore Engine</div>
+          <div id="pred-score-dist" class="empty-state text-xs py-4">Carregando...</div>
+          <div style="margin-top:12px;padding:10px;background:rgba(236,72,153,.06);border:1px solid rgba(236,72,153,.15);border-radius:8px;">
+            <div style="font-size:11px;color:#f9a8d4;">⚡ Acurácia do modelo estará disponível quando você registrar outcomes das candidaturas via D.I.A.</div>
+          </div>
         </div>
       </div>
 
@@ -3024,8 +3026,34 @@ async function loadPredictionStats() {
     const data = await r.json();
 
     if (!data.initialized) {
-      if (uninitEl)  uninitEl.classList.remove('hidden');
+      if (uninitEl) uninitEl.classList.remove('hidden');
       contentEl.classList.add('hidden');
+      // Popula distribuição de IP a partir dos hire_scores disponíveis
+      const hs = data.hireScoreSummary;
+      const distEl = $('pred-score-dist');
+      if (distEl && hs && (hs.total ?? 0) > 0) {
+        const total = hs.total ?? 0;
+        const bars = [
+          { label: '≥ 90%',  val: hs.ip90plus ?? 0, col: '#22c55e' },
+          { label: '75–89%', val: hs.ip75     ?? 0, col: '#fbbf24' },
+          { label: '50–74%', val: hs.ip50     ?? 0, col: '#60a5fa' },
+          { label: '< 50%',  val: hs.ipLow    ?? 0, col: '#6b7280' },
+        ];
+        const maxVal = Math.max(...bars.map(b => b.val), 1);
+        distEl.innerHTML = `
+          <div style="margin-bottom:10px;font-size:12px;color:#9ca3af;">
+            <span style="color:#fff;font-weight:700;font-family:'JetBrains Mono',monospace;">${total}</span> vagas scoradas &nbsp;·&nbsp; IP médio: <span style="color:#a78bfa;font-weight:700;">${hs.avgIp ?? 0}%</span>
+          </div>
+          ${bars.map(b => `
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <div style="min-width:56px;font-size:11px;color:#9ca3af;font-family:'JetBrains Mono',monospace;">${b.label}</div>
+              <div style="flex:1;height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;">
+                <div style="width:${Math.round((b.val/maxVal)*100)}%;height:100%;background:${b.col};border-radius:3px;"></div>
+              </div>
+              <div style="font-size:11px;color:${b.col};font-family:'JetBrains Mono',monospace;min-width:28px;text-align:right;">${b.val}</div>
+              <div style="font-size:10px;color:#4b5563;min-width:36px;text-align:right;">${total > 0 ? Math.round((b.val/total)*100) : 0}%</div>
+            </div>`).join('')}`;
+      }
       return;
     }
     if (uninitEl) uninitEl.classList.add('hidden');

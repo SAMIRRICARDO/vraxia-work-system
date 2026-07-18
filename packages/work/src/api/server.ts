@@ -1559,7 +1559,7 @@ app.get('/api/work/career-intelligence', async (_req: Request, res: Response) =>
       roles:     byType['role']     ?? [],
       timing,
       summary: { totalApplied, totalInterviews, overallIR },
-      initialized: patterns.length > 0,
+      initialized: patterns.length > 0 || timing.length > 0,
     });
   } catch (e) {
     res.json(empty); // never 500 — return empty so dashboard shows "run hunt first"
@@ -1655,6 +1655,23 @@ app.get('/api/work/prediction-stats', async (_req: Request, res: Response) => {
       };
     });
 
+    // Bootstrap distribution from hire_scores (available even without outcomes)
+    const hireScoreSummary = await withDb(db => {
+      try {
+        const r = dbQuery(db, `
+          SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN interview_probability >= 90 THEN 1 ELSE 0 END) as ip90plus,
+            SUM(CASE WHEN interview_probability >= 75 AND interview_probability < 90 THEN 1 ELSE 0 END) as ip75,
+            SUM(CASE WHEN interview_probability >= 50 AND interview_probability < 75 THEN 1 ELSE 0 END) as ip50,
+            SUM(CASE WHEN interview_probability < 50 THEN 1 ELSE 0 END) as ipLow,
+            ROUND(AVG(interview_probability), 1) as avgIp
+          FROM hire_scores
+        `);
+        return r[0] ?? null;
+      } catch { return null; }
+    });
+
     res.json({
       total, correct, falsePositives: falsePos, falseNegatives: falseNeg, trueNegatives: trueNeg,
       accuracy,
@@ -1662,6 +1679,7 @@ app.get('/api/work/prediction-stats', async (_req: Request, res: Response) => {
       falseNegativeRate: total > 0 ? Math.round((falseNeg / total) * 100) : 0,
       recent,
       buckets,
+      hireScoreSummary,
       initialized: total > 0,
     });
   } catch (e) {
