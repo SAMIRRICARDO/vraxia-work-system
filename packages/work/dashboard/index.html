@@ -1768,8 +1768,9 @@ async function autoDiscoverTunnel() {
   }
 
   // Tenta api-config.json (injetado pelo deploy — funciona via Vercel/acesso remoto)
+  // cache:'no-store' garante que Safari/iOS não use versão cacheada após novo deploy
   try {
-    const c = await fetch('./api-config.json', { signal: AbortSignal.timeout(2000) });
+    const c = await fetch(`./api-config.json?_=${Date.now()}`, { cache: 'no-store', signal: AbortSignal.timeout(2000) });
     if (c.ok) {
       const cfg = await c.json();
       if (cfg.apiUrl && cfg.apiUrl.startsWith('https://')) {
