@@ -362,6 +362,34 @@ export class LinkedInApplyEngine {
 
   private async findEasyApplyButton(evidence: EvidenceCollector, tracer: ApplicationTracer): Promise<Locator | null> {
     const strategies: Array<{ label: string; fn: () => Promise<Locator | null> }> = [
+      // ── LinkedIn new UI (2026-07): Easy Apply is now an <a tabindex="0"> not <button> ──
+      {
+        label: 'anchor hasText[Candidatura simplificada]',
+        fn: async () => {
+          const b = this.page.locator('a', { hasText: /^Candidatura simplificada$/ }).first();
+          return (await b.count() > 0 && await b.isVisible().catch(() => false)) ? b : null;
+        },
+      },
+      {
+        label: 'anchor hasText[Easy Apply]',
+        fn: async () => {
+          const b = this.page.locator('a', { hasText: /^Easy Apply$/ }).first();
+          return (await b.count() > 0 && await b.isVisible().catch(() => false)) ? b : null;
+        },
+      },
+      {
+        label: 'anchor tabindex text scan',
+        fn: async () => {
+          const anchors = await this.page.locator('a[tabindex]:visible').all();
+          for (const a of anchors) {
+            const txt = (await a.innerText().catch(() => '')).trim();
+            if (/Candidatura simplificada|Easy Apply/i.test(txt))
+              return a;
+          }
+          return null;
+        },
+      },
+      // ── Legacy selectors (button-based) ──────────────────────────────────────
       {
         label: 'role[Candidatura simplificada]',
         fn: async () => {
@@ -419,15 +447,20 @@ export class LinkedInApplyEngine {
       }
     }
 
-    // Log botões visíveis para diagnóstico
-    const visible = await this.page.locator('button:visible').all();
-    const labels = await Promise.all(
-      visible.slice(0, 10).map(async b => {
+    // Log botões e anchors visíveis para diagnóstico
+    const visibleBtns = await this.page.locator('button:visible').all();
+    const visibleAnchors = await this.page.locator('a[tabindex]:visible').all();
+    const labelsFn = async (els: typeof visibleBtns) => Promise.all(
+      els.slice(0, 10).map(async b => {
         const aria = await b.getAttribute('aria-label').catch(() => '');
-        const txt  = (await b.innerText().catch(() => '')).slice(0, 50);
+        const txt  = (await b.innerText().catch(() => '')).trim().slice(0, 60);
         return aria || txt;
       }),
     );
+    const labels = [
+      ...(await labelsFn(visibleBtns)),
+      ...(await labelsFn(visibleAnchors)).map(l => `[a] ${l}`),
+    ].filter(Boolean);
     tracer.addEvent({
       step: 'find_easy_apply_btn',
       url: this.page.url(),
