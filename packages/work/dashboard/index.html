@@ -1787,20 +1787,32 @@ async function autoDiscoverTunnel() {
     if (c.ok) {
       const cfg = await c.json();
       if (cfg.apiUrl && cfg.apiUrl.startsWith('https://')) {
-        const r2 = await fetch(`${cfg.apiUrl}/api/work/health`, { signal: AbortSignal.timeout(3000) });
-        if (r2.ok) {
+        // Atualiza localStorage IMEDIATAMENTE com a URL do api-config.json,
+        // ANTES do health check. Isso impede que uma URL antiga no localStorage
+        // seja usada como fallback mesmo quando o api-config.json tem URL mais nova.
+        const prevUrl = localStorage.getItem('vraxia_api_url') ?? '';
+        if (cfg.apiUrl !== prevUrl) {
           API = cfg.apiUrl;
           localStorage.setItem('vraxia_api_url', cfg.apiUrl);
           const inp = document.getElementById('api-url-input');
           if (inp) inp.value = cfg.apiUrl;
+          console.log('[VRAXIA] api-config.json: URL atualizada no localStorage:', cfg.apiUrl);
+        }
+        const r2 = await fetch(`${cfg.apiUrl}/api/work/health`, { signal: AbortSignal.timeout(3000) });
+        if (r2.ok) {
+          API = cfg.apiUrl;
           console.log('[VRAXIA] Túnel via api-config.json:', cfg.apiUrl);
           return;
         }
+        // URL do api-config.json offline — não cai para localStorage (evita dados antigos).
+        // localStorage já foi atualizado acima: próxima visita tentará a URL correta.
+        console.warn('[VRAXIA] api-config.json URL offline:', cfg.apiUrl);
+        return;
       }
     }
   } catch {}
 
-  // Fallback: URL salva no localStorage (caso api-config.json esteja offline/inacessível)
+  // Fallback: URL salva no localStorage (só alcançado se api-config.json for inacessível)
   if (API) {
     try {
       const r = await fetch(`${API}/api/work/health`, { signal: AbortSignal.timeout(3000) });
@@ -2876,6 +2888,9 @@ async function refreshHireScoreMap() {
 
 // ══ MAIN REFRESH ═════════════════════════════════════════════════════════════
 async function refreshAll() {
+  // Re-descobre túnel a cada refresh manual para garantir que o iPhone
+  // sempre use a URL mais recente do api-config.json (evita dados antigos).
+  await autoDiscoverTunnel();
   await refreshHireScoreMap();
   await refreshStats();
   await loadApplications();
@@ -2895,6 +2910,17 @@ async function refreshAll() {
 async function init() {
   lucide.createIcons();
   updateCliPreview();
+
+  // ?reset ou ?reset-url na URL limpa o localStorage antes de descobrir o túnel.
+  // Útil quando o iPhone ficou preso em URL antiga: abrir o link com ?reset na URL.
+  if (new URLSearchParams(location.search).has('reset') ||
+      new URLSearchParams(location.search).has('reset-url')) {
+    localStorage.removeItem('vraxia_api_url');
+    API = '';
+    console.log('[VRAXIA] localStorage limpo via ?reset — redescoberta forçada.');
+    // Remove o parâmetro da URL sem recarregar (evita loop de reset)
+    history.replaceState(null, '', location.pathname);
+  }
 
   // Wire up option listeners
   ['hunt-limit','opt-dryrun','opt-headless','opt-logq'].forEach(id => {

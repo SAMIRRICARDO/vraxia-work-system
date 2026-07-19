@@ -1,4 +1,4 @@
-// packages/work/src/api/server.ts
+﻿// packages/work/src/api/server.ts
 // VRAXIA WORK — Dashboard API Server
 // Usage: npx tsx src/api/server.ts
 // Dashboard: http://localhost:3001/work
@@ -13,7 +13,7 @@ import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { createServer } from 'http';
 import fs from 'fs';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, spawnSync, ChildProcess } from 'child_process';
 import initSqlJs from 'sql.js';
 import type { Database, SqlJsStatic } from 'sql.js';
 import { ModalityDetector } from '../engine/modality-detector.js';
@@ -2002,6 +2002,52 @@ app.get('/api/work/decision-scores', async (req: Request, res: Response) => {
     res.json(result);
   } catch (e) {
     res.json([]);
+  }
+});
+
+// ── POST /api/work/redeploy ──────────────────────────────────────────────────
+// Dispara um deploy Vercel manualmente para publicar alterações no dashboard.
+// Útil quando index.html ou api-config.json foram alterados sem mudança de URL.
+app.post('/api/work/redeploy', (_req: Request, res: Response) => {
+  try {
+    const tunnelFile = path.join(WORK_DIR, 'tunnel-url.txt');
+    const tunnelUrl  = fs.existsSync(tunnelFile) ? fs.readFileSync(tunnelFile, 'utf-8').trim() : null;
+
+    if (tunnelUrl?.startsWith('https://')) {
+      const cfg = JSON.stringify({ apiUrl: tunnelUrl, provider: 'cloudflare', updatedAt: new Date().toISOString() });
+      fs.writeFileSync(path.join(DASH_DIR, 'api-config.json'), cfg, 'utf-8');
+    }
+
+    const vercelBin = (() => {
+      const r = spawnSync('vercel', ['--version'], { stdio: 'ignore', shell: true });
+      if (r.status === 0) return 'vercel';
+      const fallbacks = [
+        path.join(process.env['APPDATA'] ?? '', 'npm', 'vercel.cmd'),
+        path.join(process.env['APPDATA'] ?? '', 'npm', 'vercel'),
+      ];
+      return fallbacks.find(p => fs.existsSync(p)) ?? '';
+    })();
+
+    if (!vercelBin) {
+      res.status(503).json({ error: 'vercel CLI nao encontrado', tunnelUrl });
+      return;
+    }
+
+    const proc = spawn(vercelBin, ['--prod', '--yes', '--cwd', DASH_DIR], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: true,
+    });
+    let out = '';
+    proc.stdout?.on('data', (d: Buffer) => { out += d.toString(); });
+    proc.stderr?.on('data', (d: Buffer) => { out += d.toString(); });
+    proc.on('exit', (code) => {
+      if (code === 0) console.log('[Server] Deploy Vercel manual concluido');
+      else            console.warn(`[Server] Deploy Vercel manual falhou (exit ${code}): ${out.slice(-300)}`);
+    });
+
+    res.json({ started: true, tunnelUrl, deployedAt: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
   }
 });
 
