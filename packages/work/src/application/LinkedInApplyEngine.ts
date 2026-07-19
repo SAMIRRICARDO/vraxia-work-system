@@ -512,13 +512,27 @@ export class LinkedInApplyEngine {
     await delay(600, 900); // minimal settle time
 
     // Se o clique no anchor fez o LinkedIn navegar para search-results?skipRedirect=true
-    // em vez de abrir o modal, retorna à vaga e aguarda o modal (o servidor LinkedIn
-    // pode ter enfileirado a abertura do modal mesmo após o redirect).
+    // em vez de abrir o modal, retorna à vaga e reclica o botão.
+    // A recovery original apenas voltava à página e esperava o modal — que nunca
+    // abria porque o clique original foi consumido pela navegação e nenhum novo
+    // clique era emitido.
     const urlMid = this.page.url();
     if (urlMid.includes('skipRedirect=true') || (urlMid.includes('/jobs/search-results') && !urlMid.includes('/apply'))) {
       tracer.addEvent({ step: 'easy_apply_skip_redirect_recovery', url: urlMid, result: 'ok', metadata: { jobUrl: jobUrl.slice(0, 80) } });
       await this.page.goto(jobUrl, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
       await delay(800, 1200);
+      // Re-click: native click on second attempt — first click was consumed by navigation.
+      const retryBtn = await this.findEasyApplyButton(evidence, tracer);
+      if (retryBtn) {
+        await retryBtn.scrollIntoViewIfNeeded().catch(() => {});
+        await delay(300, 500);
+        await retryBtn.click({ timeout: 3000 }).catch(() =>
+          retryBtn.evaluate((el: HTMLElement) => el.click()).catch(() => {}),
+        );
+        await this.page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {});
+        await delay(600, 900);
+        tracer.addEvent({ step: 'easy_apply_skip_redirect_reclick', url: this.page.url(), result: 'ok' });
+      }
     }
 
     const urlAfter = this.page.url();
@@ -539,11 +553,11 @@ export class LinkedInApplyEngine {
     }
 
     // LinkedIn usa <dialog open> (elemento nativo) — [role="dialog"] só funciona com atributo explícito.
-    // Seletor cobre formato novo (dialog[open]) e formatos legados (artdeco-modal, jobs-easy-apply-modal).
+    // Usa MODAL_SEL completo (inclui data-sdui-screen, data-testid e formatos legados).
     const modalOpened = await this.page
-      .locator('dialog[open], .jobs-easy-apply-modal, .artdeco-modal')
+      .locator(MODAL_SEL)
       .first()
-      .waitFor({ state: 'visible', timeout: 8000 })
+      .waitFor({ state: 'visible', timeout: 10000 })
       .then(() => true)
       .catch(() => false);
 

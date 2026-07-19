@@ -475,9 +475,9 @@
       <div id="system-notice" style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.25);border-radius:14px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;">
         <span style="font-size:18px;flex-shrink:0;">⚠️</span>
         <div>
-          <div style="font-size:12px;font-weight:700;color:#fde68a;font-family:'JetBrains Mono',monospace;margin-bottom:3px;">BUG DETECTADO &amp; CORRIGIDO — 18/07/2026</div>
+          <div style="font-size:12px;font-weight:700;color:#fde68a;font-family:'JetBrains Mono',monospace;margin-bottom:3px;">BUG CORRIGIDO — 19/07/2026 · Easy Apply skipRedirect</div>
           <div style="font-size:11px;color:#9ca3af;line-height:1.6;">
-            LinkedIn alterou o botão <b style="color:#fde68a;">Easy Apply</b> de <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;">&lt;button&gt;</code> para <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;">&lt;a tabindex="0"&gt;</code>. Todos os seletores existentes falhavam silenciosamente. Fix aplicado: 3 novas estratégias de busca por anchor com texto "Candidatura simplificada" foram adicionadas ao <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;">LinkedInApplyEngine</code>. Próxima sessão deve aplicar normalmente.
+            Após clicar no botão <b style="color:#fde68a;">Candidatura simplificada</b>, o LinkedIn navegava para <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;">?skipRedirect=true</code> em vez de abrir o modal. O engine voltava à vaga mas <b style="color:#e5e7eb;">nunca reclicava o botão</b>, então o modal nunca abria — candidatura falhava. Fix: após recovery, re-find + re-click automático. Afetou vaga CI&T (4442513091) no ciclo de 06h. Próxima sessão corrigida.
           </div>
         </div>
         <button onclick="document.getElementById('system-notice').style.display='none'" style="flex-shrink:0;background:none;border:none;color:#6b7280;cursor:pointer;font-size:16px;line-height:1;padding:0;margin-left:auto;">×</button>
@@ -716,8 +716,8 @@
           <option value="30d">Últimos 30 dias</option>
         </select>
         <input id="f-search" type="text" class="filter-input" placeholder="Buscar empresa ou cargo…" oninput="debounceSearch()" />
-        <button id="btn-date-sort" onclick="toggleDateSort()" title="Ordenar por data" class="filter-select" style="cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;">
-          <i id="btn-date-sort-icon" data-lucide="arrow-up-down" style="width:13px;height:13px;opacity:.8;"></i>
+        <button id="btn-date-sort" onclick="toggleDateSort()" title="Clique para ordenar por data (crescente / decrescente)" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px 12px;color:#e5e7eb;font-size:13px;outline:none;transition:all .2s;font-family:inherit;">
+          <span id="btn-date-sort-arrow" style="font-size:14px;line-height:1;font-weight:700;color:#6b7280;">↕</span>
           <span id="btn-date-sort-label">Data</span>
         </button>
       </div>
@@ -728,8 +728,8 @@
           <table class="tbl">
             <thead>
               <tr>
-                <th onclick="toggleDateSort()" title="Clique para ordenar por data" style="cursor:pointer;user-select:none;white-space:nowrap;">
-                  <span style="display:inline-flex;align-items:center;gap:5px;">Data/Hora <i id="date-sort-icon" data-lucide="arrow-up-down" style="width:12px;height:12px;opacity:.6;"></i></span>
+                <th onclick="toggleDateSort()" title="Clique para ordenar por data (crescente / decrescente)" style="cursor:pointer;user-select:none;white-space:nowrap;">
+                  <span style="display:inline-flex;align-items:center;gap:5px;">Data/Hora <span id="date-sort-icon" style="font-size:12px;font-weight:700;opacity:.6;">↕</span></span>
                 </th>
                 <th>Empresa</th>
                 <th>Cargo</th>
@@ -2099,16 +2099,26 @@ function applyAppSort() {
   }
   const dateIcon = $('date-sort-icon');
   if (dateIcon) {
-    dateIcon.setAttribute('data-lucide', _dateSortDir === 'desc' ? 'arrow-down' : _dateSortDir === 'asc' ? 'arrow-up' : 'arrow-up-down');
-    lucide.createIcons({ nodes: [dateIcon] });
+    dateIcon.textContent = _dateSortDir === 'desc' ? '↓' : _dateSortDir === 'asc' ? '↑' : '↕';
+    dateIcon.style.opacity = _dateSortDir ? '1' : '.6';
+    dateIcon.style.color = _dateSortDir ? '#60a5fa' : '';
   }
-  const btnDateIcon = $('btn-date-sort-icon');
-  if (btnDateIcon) {
-    btnDateIcon.setAttribute('data-lucide', _dateSortDir === 'desc' ? 'arrow-down' : _dateSortDir === 'asc' ? 'arrow-up' : 'arrow-up-down');
-    lucide.createIcons({ nodes: [btnDateIcon] });
-  }
+  const btnDateArrow = $('btn-date-sort-arrow');
   const btnDateLabel = $('btn-date-sort-label');
-  if (btnDateLabel) btnDateLabel.textContent = _dateSortDir === 'desc' ? 'Mais recente' : _dateSortDir === 'asc' ? 'Mais antigo' : 'Data';
+  const btnDateSort  = $('btn-date-sort');
+  if (btnDateArrow) btnDateArrow.textContent = _dateSortDir === 'desc' ? '↓' : _dateSortDir === 'asc' ? '↑' : '↕';
+  if (btnDateLabel) btnDateLabel.textContent  = _dateSortDir === 'desc' ? 'Mais recente' : _dateSortDir === 'asc' ? 'Mais antigo' : 'Data';
+  if (btnDateSort) {
+    if (_dateSortDir) {
+      btnDateSort.style.borderColor = 'rgba(96,165,250,.5)';
+      btnDateSort.style.color = '#93c5fd';
+      if (btnDateArrow) btnDateArrow.style.color = '#60a5fa';
+    } else {
+      btnDateSort.style.borderColor = 'rgba(255,255,255,.1)';
+      btnDateSort.style.color = '#e5e7eb';
+      if (btnDateArrow) btnDateArrow.style.color = '#6b7280';
+    }
+  }
 
   const tbody = $('apps-tbody');
   const visible = _allAppRows.slice(0, APPS_PAGE_SIZE);
@@ -2584,7 +2594,7 @@ async function loadQuestionnaire(silent = false) {
     } catch {
       // Fallback: snapshot estático gerado no último deploy
       const r = await fetch('/questionnaire-data.json',
-        { signal: AbortSignal.timeout(3000) });
+        { cache: 'no-store', signal: AbortSignal.timeout(3000) });
       if (!r.ok) throw new Error('snapshot not found');
       groups = await r.json();
     }
