@@ -184,6 +184,13 @@ const app = express();
 app.use(setCors);
 app.use(express.json());
 
+// Impede que Safari iOS (e outros browsers) cacheiem respostas da API
+app.use('/api/', (_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  next();
+});
+
 // ── Remote Dev Agent router ───────────────────────────────────────────────────
 app.use('/api/rda', createRdaRouter());
 

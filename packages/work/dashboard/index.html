@@ -2038,7 +2038,7 @@ function filterPlatform(platform) {
 // ══ STATS ════════════════════════════════════════════════════════════════════
 async function refreshStats() {
   try {
-    const r = await fetch(`${API}/api/work/stats`);
+    const r = await fetch(`${API}/api/work/stats`, { cache: 'no-store' });
     const d = await r.json();
     $('kpi-scanned').textContent = d.totalScanned ?? 0;
     $('kpi-applied').textContent = d.totalApplied ?? 0;
@@ -2268,7 +2268,7 @@ async function loadApplications(silent = false) {
   if (search)              params.set('search', search);
 
   try {
-    const r = await fetch(`${API}/api/work/applications?${params}`);
+    const r = await fetch(`${API}/api/work/applications?${params}`, { cache: 'no-store' });
     const rows = await r.json();
     _allAppRows = rows;
     $('table-count').textContent = `(${rows.length})`;
@@ -2299,7 +2299,7 @@ async function loadDailyChart() {
   destroyChart('daily');
   destroyChart('cumulative');
   try {
-    const r = await fetch(`${API}/api/work/chart/daily`);
+    const r = await fetch(`${API}/api/work/chart/daily`, { cache: 'no-store' });
     const d = await r.json();
 
     charts['daily'] = new Chart($('chart-daily'), {
@@ -2368,7 +2368,7 @@ async function loadDailyChart() {
 async function loadStatusChart() {
   destroyChart('status');
   try {
-    const r = await fetch(`${API}/api/work/stats`);
+    const r = await fetch(`${API}/api/work/stats`, { cache: 'no-store' });
     const d = await r.json();
     const byStatus = d.byStatus ?? {};
     const keys = Object.keys(byStatus);
@@ -2420,7 +2420,7 @@ async function loadStatusChart() {
 async function loadCompaniesChart() {
   destroyChart('companies');
   try {
-    const r = await fetch(`${API}/api/work/chart/companies`);
+    const r = await fetch(`${API}/api/work/chart/companies`, { cache: 'no-store' });
     const d = await r.json();
     if (!d.labels?.length) return;
 
@@ -2920,7 +2920,7 @@ async function init() {
   let _lastJsonlMtime = 0;
   async function checkDbMtime() {
     try {
-      const r = await fetch(`${API}/api/work/db-mtime`, { signal: AbortSignal.timeout(3000) });
+      const r = await fetch(`${API}/api/work/db-mtime`, { cache: 'no-store', signal: AbortSignal.timeout(3000) });
       const d = await r.json();
       const huntActive = !!d.huntPid;
 
@@ -3193,7 +3193,7 @@ async function loadOpportunityRadar() {
   if (!pipeEl) return;
 
   try {
-    const r     = await fetch(`${API}/api/work/stats`, { signal: AbortSignal.timeout(5000) });
+    const r     = await fetch(`${API}/api/work/stats`, { cache: 'no-store', signal: AbortSignal.timeout(5000) });
     const stats = await r.json();
 
     const totalScanned = stats.totalScanned ?? 0;
@@ -3673,7 +3673,7 @@ function closeHowToWin() { $('howtowin-modal').classList.remove('open'); }
 async function loadHome() {
   $('home-date').textContent = new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long' });
   try {
-    const r = await fetch(`${API}/api/work/stats`);
+    const r = await fetch(`${API}/api/work/stats`, { cache: 'no-store' });
     const d = await r.json();
     const applied = d.totalApplied ?? 0;
     const queued  = d.byStatus?.queued ?? 0;
@@ -3694,7 +3694,7 @@ async function loadHome() {
 
   // Últimas candidaturas aplicadas
   try {
-    const r2 = await fetch(`${API}/api/work/applications?status=applied`);
+    const r2 = await fetch(`${API}/api/work/applications?status=applied`, { cache: 'no-store' });
     const rows = await r2.json();
     const el = $('home-recent-apps');
     const updEl = $('home-recent-updated');
@@ -3821,7 +3821,7 @@ async function openExplain(jobId, company, title) {
     }
 
     // ── Fallback: legacy applications data ──────────────────────────────────
-    const r = await fetch(`${API}/api/work/applications?search=${encodeURIComponent(company)}&status=all`);
+    const r = await fetch(`${API}/api/work/applications?search=${encodeURIComponent(company)}&status=all`, { cache: 'no-store' });
     const rows = await r.json();
     const row = rows.find(x => x.id === jobId) || rows[0];
     if (!row) { $('explain-content').innerHTML = '<p class="text-gray-500 text-sm">Candidatura não encontrada.</p>'; return; }
@@ -4079,7 +4079,7 @@ async function runPlugin(id, name, jobId = '') {
 // ══ HOME STATS (enriquecido) ══════════════════════════════════════════════════
 async function loadHomeEnriched() {
   try {
-    const r = await fetch(`${API}/api/work/home/stats`);
+    const r = await fetch(`${API}/api/work/home/stats`, { cache: 'no-store' });
     const d = await r.json();
     $('home-match').textContent      = d.highMatch ?? '—';
     $('home-streak-val').textContent = d.streak ?? 0;
