@@ -15,7 +15,24 @@ const STARTUP_COOLDOWN_MS = 5 * 60 * 1000; // 5 min entre notificações de star
 
 // ─── Bot API ──────────────────────────────────────────────────────────────────
 
+function loadEnvSync(): void {
+  if (process.env['TELEGRAM_BOT_TOKEN']) return;
+  let dir = process.cwd();
+  for (let i = 0; i < 5; i++) {
+    const p = path.join(dir, '.env');
+    if (fs.existsSync(p)) {
+      for (const line of fs.readFileSync(p, 'utf-8').split('\n')) {
+        const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.+)$/);
+        if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
+      }
+      break;
+    }
+    dir = path.dirname(dir);
+  }
+}
+
 function credentials(): { token: string; chatId: string } {
+  loadEnvSync();
   const token  = process.env['TELEGRAM_BOT_TOKEN']  ?? '';
   const chatId = process.env['TELEGRAM_CHAT_ID']    ?? '';
   if (!token || !chatId) throw new Error('TELEGRAM_BOT_TOKEN ou TELEGRAM_CHAT_ID não configurados no .env');

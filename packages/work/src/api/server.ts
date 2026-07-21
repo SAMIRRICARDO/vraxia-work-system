@@ -2254,5 +2254,7 @@ httpServer.listen(PORT, () => {
   if (!fs.existsSync(DB_PATH)) {
     console.warn(`  [WARN] Banco não encontrado: ${DB_PATH} (execute o hunt primeiro)`);
   }
-  sendServerStartup().catch(err => console.warn('[Telegram] Startup notification failed:', String(err)));
+  sendServerStartup()
+    .then(() => console.log('[Telegram] Startup notification sent.'))
+    .catch(err => console.error('[Telegram] Startup notification FAILED:', String(err)));
 });
