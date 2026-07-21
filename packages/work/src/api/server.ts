@@ -278,9 +278,11 @@ app.get('/api/work/stats', async (_req: Request, res: Response) => {
         else if (geo.modality === 'HÍBRIDO' || geo.modality === 'PRESENCIAL') onsiteCount++;
       }
 
+      const conversionRate = totalScanned > 0 ? totalApplied / totalScanned : 0;
       return {
         totalScanned, totalApplied,
-        filterRate: totalScanned > 0 ? totalApplied / totalScanned : 0,
+        conversionRate,                       // aplicadas / escaneadas (era "filterRate", nome errado)
+        filterRate: 1 - conversionRate,       // rejeitadas / escaneadas (taxa real de filtro)
         lastRun: lastRunRow[0]?.['lr'] ?? null,
         byStatus, remoteCount, onsiteCount,
       };
@@ -331,7 +333,7 @@ app.get('/api/work/applications', async (req: Request, res: Response) => {
         params.push(like, like);
       }
 
-      sql += ` ORDER BY updated_at DESC LIMIT 300`;
+      sql += ` ORDER BY updated_at DESC LIMIT 1000`;
       return dbQuery(db, sql, params);
     });
 
@@ -550,30 +552,25 @@ app.get('/api/work/analytics', async (_req: Request, res: Response) => {
         const plats = exec(`SELECT platform, COUNT(*) as cnt FROM job_applications GROUP BY platform`);
         plats.forEach(r => { platformCounts[r['platform'] as string || 'Outro'] = r['cnt'] as number; });
 
-        const scores = exec(`SELECT score_total FROM job_applications WHERE score_total IS NOT NULL`);
+        // scoreBuckets alinhados ao HIRE_THRESHOLD=90 (mesmo critério do agente)
+        const scores = exec(`SELECT score_total, score_action FROM job_applications WHERE score_total IS NOT NULL`);
         scores.forEach(r => {
           const s = r['score_total'] as number;
-          if (s >= 75) scoreBuckets.apply_bucket++;
-          else if (s >= 50) scoreBuckets.review++;
+          const action = r['score_action'] as string;
+          if (s >= 90 || action === 'APPLY') scoreBuckets.apply_bucket++;
+          else if (s >= 60) scoreBuckets.review++;
           else scoreBuckets.skip++;
         });
 
-        // Try career-memory insights if tables exist
+        // weeklyInsights: usa scanned_at para "analisadas" e applied_at para "enviadas" (sem inflação por updated_at)
         try {
-          const insightRows = exec(`
-            SELECT COUNT(*) as t,
-              SUM(CASE WHEN status='applied' THEN 1 ELSE 0 END) as a,
-              SUM(CASE WHEN status='interview' THEN 1 ELSE 0 END) as i
-            FROM job_applications WHERE updated_at >= datetime('now','-7 days')
-          `);
-          if (insightRows.length) {
-            const week = insightRows[0];
-            const total  = (week['t'] as number) || 0;
-            const applied2 = (week['a'] as number) || 0;
-            const conv = total ? ((applied2 / total) * 100).toFixed(0) : 0;
-            weeklyInsights = `Esta semana: ${total} vagas analisadas, ${applied2} candidaturas enviadas (${conv}% conversão).`;
-          }
-        } catch { /* career-memory tables may not exist yet */ }
+          const scannedRow = exec(`SELECT COUNT(*) as t FROM job_applications WHERE scanned_at >= datetime('now','-7 days')`);
+          const appliedRow = exec(`SELECT COUNT(*) as a FROM job_applications WHERE applied_at >= datetime('now','-7 days') AND status='applied'`);
+          const total   = (scannedRow[0]?.['t'] as number) || 0;
+          const applied2 = (appliedRow[0]?.['a'] as number) || 0;
+          const conv = total ? ((applied2 / total) * 100).toFixed(0) : 0;
+          weeklyInsights = `Esta semana: ${total} vagas escaneadas, ${applied2} candidaturas enviadas (${conv}% conversão).`;
+        } catch { /* scanned_at ou applied_at pode não existir */ }
       }
     } finally {
       db?.close();

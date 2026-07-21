@@ -678,7 +678,7 @@
             </div>
           </div>
           <div class="text-2xl font-bold text-white font-mono" id="kpi-rate">—</div>
-          <div class="text-xs text-gray-500 mt-1">Taxa de Aprovação</div>
+          <div class="text-xs text-gray-500 mt-1">Taxa de Conversão</div>
         </div>
         <!-- Custo Estimado -->
         <div class="glass rounded-xl p-5 card-hover scan-line">
@@ -2219,7 +2219,7 @@ async function refreshStats() {
     const d = await r.json();
     $('kpi-scanned').textContent = d.totalScanned ?? 0;
     $('kpi-applied').textContent = d.totalApplied ?? 0;
-    $('kpi-rate').textContent    = ((d.filterRate ?? 0) * 100).toFixed(1) + '%';
+    $('kpi-rate').textContent    = ((d.conversionRate ?? d.filterRate ?? 0) * 100).toFixed(1) + '%';
     $('kpi-cost').textContent    = '$' + (d.estimatedCostUsd ?? 0).toFixed(4);
     $('kpi-lastrun').textContent = fmtDate(d.lastRun);
     $('kpi-remote').textContent  = d.remoteCount ?? 0;
