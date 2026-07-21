@@ -1,16 +1,17 @@
 import { env, isCheapMode } from "./env.js";
+import { runtimeConfig } from "./runtime.js";
 
 export const Models = {
   default: env.DEFAULT_MODEL,
   fast: env.FAST_MODEL,
-  powerful: env.POWERFUL_MODEL,
+  powerful: isCheapMode ? runtimeConfig.preferredModel : env.POWERFUL_MODEL,
 } as const;
 
 export const ModelConfig = {
   maxTokens: {
     default: 8192,
     extended: 16384,
-    cheap: 512,
+    cheap: runtimeConfig.maxOutputTokens,
   },
   temperature: {
     deterministic: 0,
@@ -25,9 +26,14 @@ export const ModelConfig = {
  */
 export function getMaxTokens(preferred?: number): number {
   const base = preferred ?? ModelConfig.maxTokens.default;
+  if (isCheapMode) return Math.min(base, env.MAX_OUTPUT_TOKENS, runtimeConfig.maxOutputTokens);
   if (env.MAX_OUTPUT_TOKENS) return Math.min(base, env.MAX_OUTPUT_TOKENS);
-  if (isCheapMode) return Math.min(base, ModelConfig.maxTokens.cheap);
   return base;
+}
+
+export function getClaudeModel(preferred?: string): string {
+  if (isCheapMode) return runtimeConfig.preferredModel;
+  return preferred ?? Models.default;
 }
 
 /**

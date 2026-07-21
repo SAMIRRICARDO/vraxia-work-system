@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { Job, JobScore, ApplyAction } from '../types/index.js';
 import { VaultRetriever } from '../rag/retriever.js';
 import { ModalityDetector } from '../engine/modality-detector.js';
+import { claudeMaxTokens, claudeModel } from '../claude-budget.js';
 
 const APPLY_THRESHOLD = 18;
 const REVIEW_THRESHOLD = 12;
@@ -77,8 +78,8 @@ Retorne APENAS JSON válido, sem markdown:
 
     try {
       const response = await this.client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 256,
+        model: claudeModel('claude-haiku-4-5-20251001'),
+        max_tokens: claudeMaxTokens(256),
         messages: [{ role: 'user', content: prompt }],
       });
 
@@ -115,4 +116,3 @@ Retorne APENAS JSON válido, sem markdown:
     }
   }
 }
-

@@ -32,6 +32,7 @@ import { CandidateProfileLoader } from '../rag/candidate-profile-loader.js';
 import { AgentRegistry } from '../marketplace/registry.js';
 import { sendServerStartup } from '../notifications/telegram.js';
 import { createRdaRouter, initRdaWsServer } from '../remote-dev/index.js';
+import { claudeMaxTokens, claudeModel } from '../claude-budget.js';
 
 const modalityDetector = new ModalityDetector();
 const retriever = new VaultRetriever();
@@ -697,8 +698,8 @@ Após sua resposta, retorne na última linha (após duas quebras de linha) o JSO
 {"intent":"<${INTENTS.join('|')}>","reply":"<texto completo da resposta>"}`;
 
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1500,
+      model: claudeModel('claude-sonnet-4-6'),
+      max_tokens: claudeMaxTokens(1500),
       system: systemPrompt,
       messages: [{ role: 'user', content: message }],
     });
@@ -1708,11 +1709,12 @@ app.get('/api/work/prediction-stats', async (_req: Request, res: Response) => {
 app.post('/api/work/applications/:jobId/dia', async (req: Request, res: Response) => {
   try {
     const jobId = String(req.params['jobId']);
-    const { outcomeState, notes, twinId, daysSinceApply } = req.body as {
+    const { outcomeState, notes, twinId, daysSinceApply, scheduledAt } = req.body as {
       outcomeState: string;
       notes?: string;
       twinId?: string;
       daysSinceApply?: number;
+      scheduledAt?: string;
     };
 
     const VALID_STATES = [
@@ -1748,6 +1750,7 @@ app.post('/api/work/applications/:jobId/dia', async (req: Request, res: Response
       outcomeState,
       notes,
       daysSinceApply,
+      scheduledAt,
     });
 
     // Mapeia estado para InterviewOutcomeType e dispara LearningEngine
@@ -1812,8 +1815,9 @@ app.post('/api/work/applications/:jobId/dia', async (req: Request, res: Response
       });
     }
 
+    const updatedTimeline = store.getOutcomeTimeline(jobId);
     store.close();
-    res.json({ ok: true, jobId, outcomeState, twinId: resolvedTwinId });
+    res.json({ ok: true, jobId, outcomeState, twinId: resolvedTwinId, timeline: updatedTimeline });
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }
@@ -1830,6 +1834,150 @@ app.get('/api/work/applications/:jobId/dia', async (req: Request, res: Response)
     const current  = timeline.length ? timeline[timeline.length - 1].outcomeState : null;
     store.close();
     res.json({ jobId, timeline, current });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+// ── GET /api/work/agenda ──────────────────────────────────────────────────────
+// Retorna todos os eventos com data/hora agendada (outcome_timeline + pipeline).
+app.get('/api/work/agenda', async (_req: Request, res: Response) => {
+  try {
+    const { ProfessionalTwinsStore } = await import('../twin/professional-twins.js');
+    const store = await ProfessionalTwinsStore.create();
+
+    // Events from D.I.A. outcome_timeline
+    const diaItems = store.getScheduledInterviews().map(i => ({ ...i, source: 'dia' }));
+
+    // Events from pipeline_opportunities with interview_date
+    const pipelineItems = store.getPipelineOpps()
+      .filter((o: Record<string, unknown>) => o['interview_date'])
+      .map((o: Record<string, unknown>) => ({
+        id:           o['id'] as string,
+        jobId:        null,
+        company:      o['company'] as string,
+        jobTitle:     o['position'] as string,
+        outcomeState: o['status'] as string,
+        notes:        o['notes'] as string | null,
+        scheduledAt:  o['interview_date'] as string,
+        createdAt:    o['created_at'] as string,
+        priority:     o['priority'] as string,
+        recruiterName: o['recruiter_name'] as string | null,
+        preparationTopics: o['preparation_topics'],
+        source:       'pipeline',
+        pipelineId:   o['id'] as string,
+      }));
+
+    store.close();
+    const items = [...diaItems, ...pipelineItems].sort(
+      (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
+    );
+    res.json({ items });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+// ── Pipeline CRM ──────────────────────────────────────────────────────────────
+const PIPELINE_SEED = [
+  {
+    id: 'pip-001', company: 'Red Hat / PRODESP', position: 'AI Specialist / Solution Architecture',
+    priority: 'P1', status: 'interview_scheduled',
+    recruiterName: 'Antonio Capellaro', inviteEmail: 'samirnstech@gmail.com',
+    interviewDate: '2026-07-21T17:30:00',
+    notes: 'Via Consultoria. Entrevista técnica agendada.',
+    nextAction: 'Entrevista hoje 17:30 — preparar OpenShift, Kubernetes, RAG',
+    probability: 75,
+    preparationTopics: ['AI Architecture','Solution Design','Docker','Kubernetes','OpenShift','AWS','APIs','Microservices','Observability','Cloud','RAG','LLM Integration'],
+  },
+  {
+    id: 'pip-002', company: 'Itaú Unibanco', position: 'AI Solutions Architect / ML Engineering',
+    priority: 'P2', status: 'interview_scheduled',
+    recruiterName: 'Thaís Guimarães', recruiterRole: 'Coordinator - Machine Learning Engineering',
+    interviewDate: '2026-07-23T18:00:00',
+    notes: 'Entrevista com Coordinadora de ML Engineering.',
+    nextAction: 'Preparar MLOps, LLMOps, Multi-Agent Systems, Event Driven Architecture',
+    probability: 70,
+    preparationTopics: ['Machine Learning Engineering','AI Architecture','LLMOps','MLOps','RAG','Multi-Agent Systems','Cloud Architecture','Kubernetes','Distributed Systems','Event Driven Architecture','Data Engineering','Observability','High Availability','Scalability'],
+  },
+  {
+    id: 'pip-003', company: 'V8.Tech (Grupo TIM)', position: 'Cloud / AI / Software Engineering',
+    priority: 'P3', status: 'culture_fit_completed',
+    notes: 'Culture Fit concluído. Aguardando próxima fase.',
+    nextAction: 'Follow-up com recrutamento — aguardar próxima entrevista',
+    probability: 55,
+    preparationTopics: ['Cloud','Artificial Intelligence','Digital Transformation','Software Engineering','Data Engineering','Automation'],
+  },
+  {
+    id: 'pip-004', company: 'Vita (Grupo Telbra)', position: 'Software Developer (Mid-Level)',
+    priority: 'P4', status: 'technical_interview_completed',
+    recruiterName: 'Vita HR', contractType: 'CLT', salaryExpectation: 11000,
+    interviewDate: '2026-07-20T00:00:00',
+    notes: 'Entrevista técnica realizada em 20/07. Aguardando feedback de RH.',
+    nextAction: 'Aguardar retorno do RH — prazo esperado 2-3 dias úteis',
+    probability: 50,
+    preparationTopics: ['APIs','Python','React','Docker','SQL','Microservices'],
+  },
+  {
+    id: 'pip-005', company: 'AI Pre-Sales Architect', position: 'AI Pre-Sales Architect (Senior/Principal)',
+    priority: 'P5', status: 'initial_contact', contractType: 'PJ', salaryExpectation: 30000,
+    offerDetails: 'R$30.000 PJ + R$1.500 allowance + comissão de vendas + bônus de performance + 15 dias férias remuneradas',
+    notes: 'Contato inicial recebido. Oferta de R$30k PJ.',
+    nextAction: 'Agendar conversa exploratória — entender escopo e cliente-alvo',
+    probability: 40,
+    preparationTopics: ['LangChain','AI Agents','IoT','IoT Gateways','Data Engineering','AI Architecture','Discovery','Solution Design'],
+  },
+];
+
+app.get('/api/work/pipeline', async (_req: Request, res: Response) => {
+  try {
+    const { ProfessionalTwinsStore } = await import('../twin/professional-twins.js');
+    const store = await ProfessionalTwinsStore.create();
+    // Auto-seed on first access
+    if (store.countPipelineOpps() === 0) {
+      for (const opp of PIPELINE_SEED) store.savePipelineOpp(opp);
+    }
+    const opps = store.getPipelineOpps();
+    store.close();
+    res.json({ opps });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+app.post('/api/work/pipeline', async (req: Request, res: Response) => {
+  try {
+    const { ProfessionalTwinsStore } = await import('../twin/professional-twins.js');
+    const { randomUUID } = await import('crypto');
+    const store = await ProfessionalTwinsStore.create();
+    const opp = { id: randomUUID(), ...req.body };
+    store.savePipelineOpp(opp);
+    store.close();
+    res.json({ ok: true, id: opp.id });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+app.put('/api/work/pipeline/:id', async (req: Request, res: Response) => {
+  try {
+    const { ProfessionalTwinsStore } = await import('../twin/professional-twins.js');
+    const store = await ProfessionalTwinsStore.create();
+    store.updatePipelineOpp(String(req.params['id']), req.body);
+    store.close();
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+app.delete('/api/work/pipeline/:id', async (req: Request, res: Response) => {
+  try {
+    const { ProfessionalTwinsStore } = await import('../twin/professional-twins.js');
+    const store = await ProfessionalTwinsStore.create();
+    store.deletePipelineOpp(String(req.params['id']));
+    store.close();
+    res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }

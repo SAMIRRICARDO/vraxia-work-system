@@ -21,6 +21,7 @@ import { emailPatternResolver } from "../agents/lead-enrichment-agent/email-reso
 import { getIALeadsCache } from "../memory/sqlite-cache.js";
 import { recordAnalytics, estimateOpenAICost } from "../memory/analytics.js";
 import { saveLocalMemory } from "../memory/local-rag.js";
+import { runtimeConfig } from "../config/runtime.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -36,7 +37,7 @@ const OUTPUT = val("--output");
 const BLOCKLIST = val("--blocklist") ?? "data/leads/blocklist/do-not-contact-latest.json";
 const DRY_RUN = flag("--dry-run") || flag("--preview");
 const BATCH_SIZE = Math.min(Number(val("--batch") ?? "3"), 5); // companies per AI call
-const MAX_OUTPUT_TOKENS = Number(process.env.MAX_OUTPUT_TOKENS ?? "700");
+const MAX_OUTPUT_TOKENS = Math.min(Number(process.env.MAX_OUTPUT_TOKENS ?? runtimeConfig.maxOutputTokens), runtimeConfig.maxOutputTokens);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

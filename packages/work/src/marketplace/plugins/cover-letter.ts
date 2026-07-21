@@ -1,6 +1,7 @@
 // cover-letter — gera carta de apresentação personalizada em PT-BR (Sonnet)
 import Anthropic from '@anthropic-ai/sdk';
 import { AgentPlugin, AgentContext, AgentResult } from '../plugin-interface.js';
+import { claudeMaxTokens, claudeModel } from '../../claude-budget.js';
 
 export const coverLetter: AgentPlugin = {
   id:              'cover-letter-br',
@@ -24,8 +25,8 @@ export const coverLetter: AgentPlugin = {
 
     const client = new Anthropic({ apiKey: ctx.apiKey });
     const r = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1200,
+      model: claudeModel('claude-sonnet-4-6'),
+      max_tokens: claudeMaxTokens(1200),
       messages: [{
         role: 'user',
         content: `Você escreve cartas de apresentação para engenheiros de software sênior no mercado brasileiro.

@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { TwinStore } from '../twin/candidate-twin.js';
 import { VaultRetriever } from '../rag/retriever.js';
+import { claudeMaxTokens, claudeModel } from '../claude-budget.js';
 
 const VAULT_DIR = path.resolve(process.cwd(), '.vraxia-work', 'resumes');
 
@@ -81,8 +82,8 @@ Retorne o currículo completo em markdown.
 `;
 
     const response = await this.client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 3000,
+      model: claudeModel('claude-sonnet-4-6'),
+      max_tokens: claudeMaxTokens(3000),
       messages: [{ role: 'user', content: prompt }],
     });
 

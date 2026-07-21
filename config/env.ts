@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { z } from "zod";
+import { runtimeConfig } from "./runtime.js";
 
 const envSchema = z.object({
   // ── Memory ────────────────────────────────────────────────────────────────
@@ -25,8 +26,8 @@ const envSchema = z.object({
   WEBHOOK_PORT:          z.coerce.number().int().positive().default(4000),
 
   // ── Models ────────────────────────────────────────────────────────────────
-  DEFAULT_MODEL:  z.string().default("claude-haiku-4-5-20251001"),
-  FAST_MODEL:     z.string().default("claude-haiku-4-5-20251001"),
+  DEFAULT_MODEL:  z.string().default(runtimeConfig.preferredModel),
+  FAST_MODEL:     z.string().default(runtimeConfig.preferredModel),
   POWERFUL_MODEL: z.string().default("claude-sonnet-4-6"),
 
   // ── Infrastructure ────────────────────────────────────────────────────────
@@ -46,10 +47,10 @@ const envSchema = z.object({
 
   // ── Cost / Dev mode ───────────────────────────────────────────────────────
   DEV_MODE:           z.string().optional().default("false"),
-  CHEAP_MODE:         z.string().optional().default("false"),
+  CHEAP_MODE:         z.string().optional().default(String(runtimeConfig.cheapMode)),
   DEMO_MODE:          z.string().optional().default("false"),
   MAX_TOOL_ITERATIONS: z.coerce.number().int().positive().optional(),
-  MAX_OUTPUT_TOKENS:   z.coerce.number().int().positive().optional(),
+  MAX_OUTPUT_TOKENS:   z.coerce.number().int().positive().default(runtimeConfig.maxOutputTokens),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -5,6 +5,7 @@ import { Page } from 'playwright';
 import Anthropic from '@anthropic-ai/sdk';
 import { VaultRetriever } from '../rag/retriever.js';
 import { CandidateTwin, QuestionnaireQuestion } from '../types/index.js';
+import { claudeMaxTokens, claudeModel } from '../claude-budget.js';
 
 const delay = (min: number, max: number) =>
   new Promise(r => setTimeout(r, Math.floor(Math.random() * (max - min + 1)) + min));
@@ -341,8 +342,8 @@ export class GreenhouseApplyEngine {
 
     try {
       const r = await this.client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 250,
+        model: claudeModel('claude-haiku-4-5-20251001'),
+        max_tokens: claudeMaxTokens(250),
         messages: [{
           role: 'user',
           content: `Candidato: ${twin.identity.name} — ${twin.professional.currentTitle} (${twin.professional.yearsExp} anos de exp.)

@@ -1,6 +1,7 @@
 // linkedin-optimizer — analisa perfil e sugere melhorias baseadas no mercado (Sonnet)
 import Anthropic from '@anthropic-ai/sdk';
 import { AgentPlugin, AgentContext, AgentResult } from '../plugin-interface.js';
+import { claudeMaxTokens, claudeModel } from '../../claude-budget.js';
 
 export const linkedinOptimizer: AgentPlugin = {
   id:              'linkedin-optimizer',
@@ -23,8 +24,8 @@ export const linkedinOptimizer: AgentPlugin = {
 
     const client = new Anthropic({ apiKey: ctx.apiKey });
     const r = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1000,
+      model: claudeModel('claude-sonnet-4-6'),
+      max_tokens: claudeMaxTokens(1000),
       messages: [{
         role: 'user',
         content: `Você é um especialista em personal branding para engenheiros de software no LinkedIn.

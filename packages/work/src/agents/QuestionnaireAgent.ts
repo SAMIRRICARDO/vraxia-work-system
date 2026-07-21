@@ -10,6 +10,7 @@ import { DecisionLayer, QuestionIntent } from '../rag/candidate-profile-types.js
 import type { DecisionTrace } from '../rag/candidate-profile-types.js';
 import { QuestionnaireLogger } from './QuestionnaireLogger.js';
 import { QACache } from './cache.js';
+import { claudeMaxTokens, claudeModel } from '../claude-budget.js';
 
 // ─── SenseLayer — classificação CPU puro, zero custo de API ─────────────────
 
@@ -282,8 +283,8 @@ INSTRUÇÕES:
 
     try {
       const response = await this.client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 350,
+        model: claudeModel('claude-haiku-4-5-20251001'),
+        max_tokens: claudeMaxTokens(350),
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
       });

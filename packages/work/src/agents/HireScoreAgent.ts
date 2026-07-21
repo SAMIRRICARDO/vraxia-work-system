@@ -10,6 +10,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import type { Job } from '../types/index.js';
+import { claudeMaxTokens, claudeModel } from '../claude-budget.js';
 import {
   HireScore,
   ProfessionalTwin,
@@ -104,8 +105,8 @@ Return ONLY this JSON:
 
     try {
       const response = await this.client.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 512,
+        model: claudeModel('claude-sonnet-4-6'),
+        max_tokens: claudeMaxTokens(512),
         messages: [{ role: 'user', content: prompt }],
       });
 

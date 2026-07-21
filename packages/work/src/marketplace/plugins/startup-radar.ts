@@ -1,6 +1,7 @@
 // startup-radar — detecta sinais de startup e prioriza vagas de alto crescimento
 import Anthropic from '@anthropic-ai/sdk';
 import { AgentPlugin, AgentContext, AgentResult } from '../plugin-interface.js';
+import { claudeMaxTokens, claudeModel } from '../../claude-budget.js';
 
 export const startupRadar: AgentPlugin = {
   id:              'startup-radar',
@@ -37,8 +38,8 @@ export const startupRadar: AgentPlugin = {
       try {
         const client = new Anthropic({ apiKey: ctx.apiKey });
         const r = await client.messages.create({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 400,
+          model: claudeModel('claude-haiku-4-5-20251001'),
+          max_tokens: claudeMaxTokens(400),
           messages: [{
             role: 'user',
             content: `Analise esta vaga e retorne JSON:

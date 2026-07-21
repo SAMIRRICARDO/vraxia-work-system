@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { logger } from "../../config/logger.js";
-import { Models } from "../../config/models.js";
+import { Models, getMaxTokens } from "../../config/models.js";
 import type { MessageParam } from "./types.js";
 
 // Rough token estimator: 1 token ≈ 4 chars
@@ -48,7 +48,7 @@ export async function compressContext(
 
   const response = await client.messages.create({
     model: Models.fast,
-    max_tokens: 1024,
+    max_tokens: getMaxTokens(200),
     system: COMPRESSION_PROMPT,
     messages: [{ role: "user", content: historyText }],
   });

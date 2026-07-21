@@ -8,6 +8,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { Job } from '../types/index.js';
 import type { ProfessionalTwin } from '../types/hire-intelligence.js';
+import { claudeMaxTokens, claudeModel } from '../claude-budget.js';
 
 export interface ATSOptimizationResult {
   jobId: string;
@@ -130,8 +131,8 @@ Return ONLY this JSON (no extra text):
 
     try {
       const response = await this.client.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 2048,
+        model: claudeModel('claude-sonnet-4-6'),
+        max_tokens: claudeMaxTokens(2048),
         messages: [{ role: 'user', content: prompt }],
       });
 

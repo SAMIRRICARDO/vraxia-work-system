@@ -5,6 +5,7 @@ import initSqlJs, { Database, SqlJsStatic } from 'sql.js';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'fs';
 import path from 'path';
+import { claudeMaxTokens, claudeModel } from '../claude-budget.js';
 import {
   CompanyInsight,
   KeywordPerformance,
@@ -336,8 +337,8 @@ ${resumePerf.map(r => `- ${r.versaoCv}: ${r.candidaturas} candidaturas, ${(r.tax
     try {
       const client = new Anthropic({ apiKey });
       const res = await client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 600,
+        model: claudeModel('claude-haiku-4-5-20251001'),
+        max_tokens: claudeMaxTokens(600),
         messages: [{
           role: 'user',
           content: `Você é um career coach. Com base nos dados abaixo, gere um relatório semanal conciso com:

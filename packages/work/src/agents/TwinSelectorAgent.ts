@@ -4,6 +4,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { Job } from '../types/index.js';
 import type { ProfessionalTwin, TwinId } from '../types/hire-intelligence.js';
+import { claudeMaxTokens, claudeModel } from '../claude-budget.js';
 
 export interface TwinCompatibility {
   twinId: TwinId;
@@ -62,8 +63,8 @@ Return ONLY this JSON (no extra text):
 
     try {
       const response = await this.client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 300,
+        model: claudeModel('claude-haiku-4-5-20251001'),
+        max_tokens: claudeMaxTokens(300),
         messages: [{ role: 'user', content: prompt }],
       });
 

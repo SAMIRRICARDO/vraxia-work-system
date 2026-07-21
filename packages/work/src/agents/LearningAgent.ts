@@ -5,6 +5,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { LearningRoadmap, SkillsMapItem } from '../types/index.js';
 import { TwinStore } from '../twin/candidate-twin.js';
 import { CareerMemory } from '../memory/career-memory.js';
+import { claudeMaxTokens, claudeModel } from '../claude-budget.js';
 
 export class LearningAgent {
   private client: Anthropic;
@@ -67,8 +68,8 @@ Gere um roadmap realista. Retorne APENAS JSON:
 
     try {
       const response = await this.client.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
+        model: claudeModel('claude-sonnet-4-6'),
+        max_tokens: claudeMaxTokens(1024),
         messages: [{ role: 'user', content: prompt }],
       });
 

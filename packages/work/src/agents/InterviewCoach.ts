@@ -4,6 +4,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { TwinStore } from '../twin/candidate-twin.js';
 import { VaultRetriever } from '../rag/retriever.js';
+import { claudeMaxTokens, claudeModel } from '../claude-budget.js';
 
 export interface InterviewQuestion {
   id: number;
@@ -85,8 +86,8 @@ Gere exatamente 10 perguntas variadas nas 5 categorias.
 `;
 
     const response = await this.client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
+      model: claudeModel('claude-haiku-4-5-20251001'),
+      max_tokens: claudeMaxTokens(4096),
       messages: [{ role: 'user', content: prompt }],
     });
 
@@ -132,8 +133,8 @@ Retorne APENAS JSON:
 `;
 
     const response = await this.client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
+      model: claudeModel('claude-haiku-4-5-20251001'),
+      max_tokens: claudeMaxTokens(1024),
       messages: [{ role: 'user', content: prompt }],
     });
 

@@ -6,8 +6,33 @@ import {
 } from '../../prompts/commercial/leadIntelligencePrompt.js';
 import type { Lead, AgentOutput } from '../../types/commercial.js';
 import type { SessionMemory } from '../../memory/sessionMemory.js';
+import { getClaudeModel, getMaxTokens } from '../../config/models.js';
+import { recordClaudeMessageUsage } from '../../config/claude-analytics.js';
 
 const client = new Anthropic();
+
+const CHEAP_INTELLIGENCE_PROMPT = `
+Voce e o Lead Intelligence 360 da VRASHOWS em cheap mode.
+Retorne SOMENTE JSON puro, sem markdown e sem raciocinio.
+Analise fit comercial para eventos corporativos B2B.
+
+Schema:
+{
+  "behavioral": {"decision_power": "high|medium|low", "channel": "linkedin|email|whatsapp|telefone"},
+  "strategic": {"event_fit": "high|medium|low", "budget_signal": "enterprise|high|medium|low"},
+  "composite_score": 0,
+  "tier": "A|B|C|D",
+  "win_probability": 0,
+  "estimated_deal_size": "string curta",
+  "opening_hook": "max 18 palavras",
+  "key_pain_to_address": "max 10 palavras",
+  "social_proof_to_use": "string ou null",
+  "red_flags": ["max 3 itens"],
+  "green_flags": ["max 3 itens"],
+  "recommended_action": "discard|nurture|outreach",
+  "best_approach": "linkedin|email|whatsapp|telefone"
+}
+`.trim();
 
 export interface LeadIntelligence {
   lead: Lead;
@@ -45,44 +70,20 @@ export async function runLeadIntelligence360(
   }
 
   const leadContext = JSON.stringify(lead);
-
-  // CHAMADA 1 — Análise comportamental (Haiku, 100 tokens, custo zero)
-  const [behavioralRes, strategicRes] = await Promise.all([
-    client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 200,
-      system: BEHAVIORAL_ANALYSIS_PROMPT,
-      messages: [{ role: 'user', content: leadContext }]
-    }),
-    // CHAMADA 2 — Análise estratégica (Haiku, 200 tokens) — em paralelo com a 1
-    client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 200,
-      system: STRATEGIC_ANALYSIS_PROMPT,
-      messages: [{ role: 'user', content: leadContext }]
-    })
-  ]);
-
-  const behavioralRaw = behavioralRes.content[0].type === 'text' ? behavioralRes.content[0].text : '{}';
-  const strategicRaw = strategicRes.content[0].type === 'text' ? strategicRes.content[0].text : '{}';
-  console.log('[Intelligence360] Behavioral raw:', behavioralRaw.slice(0, 150));
-  console.log('[Intelligence360] Strategic raw:', strategicRaw.slice(0, 150));
-  const behavioral = safeJsonParse(behavioralRes);
-  const strategic = safeJsonParse(strategicRes);
-
-  // CHAMADA 3 — Síntese final (Sonnet, 600 tokens — qualidade crítica)
-  const synthesisContext = JSON.stringify({ lead, behavioral, strategic });
-
+  const model = getClaudeModel('claude-haiku-4-5-20251001');
   const synthesisRes = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 800,
-    system: INTELLIGENCE_SYNTHESIS_PROMPT,
-    messages: [{ role: 'user', content: synthesisContext }]
+    model,
+    max_tokens: getMaxTokens(300),
+    system: CHEAP_INTELLIGENCE_PROMPT,
+    messages: [{ role: 'user', content: leadContext }]
   });
+  recordClaudeMessageUsage('commercial-lead-intelligence', model, synthesisRes);
 
   const rawSynthesis = synthesisRes.content[0].type === 'text' ? synthesisRes.content[0].text : '{}';
   console.log('[Intelligence360] Synthesis raw:', rawSynthesis.slice(0, 200));
   const synthesis = safeJsonParse(synthesisRes);
+  const behavioral = (synthesis['behavioral'] as Record<string, unknown>) ?? {};
+  const strategic = (synthesis['strategic'] as Record<string, unknown>) ?? {};
 
   const compositeScore = typeof synthesis['composite_score'] === 'number'
     ? synthesis['composite_score'] as number

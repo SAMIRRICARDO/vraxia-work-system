@@ -1,6 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { Lead, AgentOutput } from '../../types/commercial.js';
 import type { SessionMemory } from '../../memory/sessionMemory.js';
+import { getClaudeModel, getMaxTokens } from '../../config/models.js';
+import { recordClaudeMessageUsage } from '../../config/claude-analytics.js';
 
 const client = new Anthropic();
 
@@ -97,6 +99,23 @@ REGRAS:
 - proposta_de_valor focada nos serviços VRASHOWS que mais se aplicam ao perfil
 `.trim();
 
+const CHEAP_ENRICHMENT_SYSTEM = `
+Voce e o agente comercial VRASHOWS em cheap mode.
+Retorne SOMENTE JSON puro, sem markdown e sem raciocinio.
+Gere enriquecimento leve, objetivo e curto.
+
+Schema:
+{
+  "perfil": {"senioridade": "c-level|vp|diretor|gerente|coordenador", "poder_decisao": "decisor-final|forte-influencia|influenciador|recomendador"},
+  "empresa": {"porte": "startup|pme|mid-market|enterprise", "setor": "string"},
+  "eventos": {"participa_eventos": true, "papel_nos_eventos": "patrocinador|expositor|palestrante|participante|organizador", "frequencia_estimada": "anual|semestral|trimestral|mensal"},
+  "estrategia_abordagem": {"melhor_canal": "linkedin|email|whatsapp|telefone", "angulo_de_abertura": "max 18 palavras", "proposta_de_valor": "max 18 palavras"},
+  "scores": {"fit_icp": 0, "urgencia": 0, "potencial_de_negocio": 0, "acessibilidade": 0, "overall": 0, "fit": "high|medium|low", "justificativa": "max 12 palavras"},
+  "pain_points": ["max 3 itens"],
+  "enriched": true
+}
+`.trim();
+
 export async function runEnrichment(
   input: { lead: Lead },
   memory: SessionMemory
@@ -105,15 +124,17 @@ export async function runEnrichment(
     return { success: false, data: {}, error: 'Lead não fornecido para enriquecimento' };
   }
 
+  const model = getClaudeModel('claude-haiku-4-5-20251001');
   const response = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 2000,
-    system: ENRICHMENT_SYSTEM,
+    model,
+    max_tokens: getMaxTokens(300),
+    system: CHEAP_ENRICHMENT_SYSTEM,
     messages: [{
       role: 'user',
-      content: `Gere o dossiê comercial completo para: ${JSON.stringify(input.lead)}`
+      content: `Lead: ${JSON.stringify(input.lead)}`
     }]
   });
+  recordClaudeMessageUsage('commercial-enrichment', model, response);
 
   const rawText = response.content[0].type === 'text' ? response.content[0].text.trim() : '{}';
   const raw = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();

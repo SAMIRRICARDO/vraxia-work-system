@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { RecruiterContact, RecruiterInteraction } from '../types/index.js';
 import { TwinStore } from '../twin/candidate-twin.js';
+import { claudeMaxTokens, claudeModel } from '../claude-budget.js';
 
 const DB_DIR  = path.resolve(process.cwd(), '.vraxia-work');
 const DB_PATH = path.join(DB_DIR, 'work.db');
@@ -145,8 +146,8 @@ Retorne APENAS a mensagem, sem aspas ou formatação extra.`;
 
     try {
       const r = await this.client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 150,
+        model: claudeModel('claude-haiku-4-5-20251001'),
+        max_tokens: claudeMaxTokens(150),
         messages: [{ role: 'user', content: prompt }],
       });
       const msg = r.content[0].type === 'text' ? r.content[0].text.trim() : '';
@@ -171,8 +172,8 @@ Retorne APENAS a mensagem.`;
 
     try {
       const r = await this.client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 150,
+        model: claudeModel('claude-haiku-4-5-20251001'),
+        max_tokens: claudeMaxTokens(150),
         messages: [{ role: 'user', content: prompt }],
       });
       return r.content[0].type === 'text' ? r.content[0].text.trim().slice(0, 300) : '';

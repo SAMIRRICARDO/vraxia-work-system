@@ -4,6 +4,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { ChatIntent, ChatResponse, QuickAction } from '../types/index.js';
 import { TwinStore } from '../twin/candidate-twin.js';
+import { claudeMaxTokens, claudeModel } from '../claude-budget.js';
 
 const INTENTS: ChatIntent[] = [
   'HUNT', 'RESUME', 'INTERVIEW', 'SALARY', 'ANALYTICS',
@@ -99,8 +100,8 @@ export class ChatOrchestrator {
 
     try {
       const res = await this.client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 20,
+        model: claudeModel('claude-haiku-4-5-20251001'),
+        max_tokens: claudeMaxTokens(20),
         messages: [{
           role: 'user',
           content: `Classifique a mensagem abaixo em UMA das categorias: ${INTENTS.join(', ')}.
@@ -133,8 +134,8 @@ Mensagem: "${input}"`,
     ).join('\n');
 
     const res = await this.client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 400,
+      model: claudeModel('claude-haiku-4-5-20251001'),
+      max_tokens: claudeMaxTokens(400),
       messages: [{
         role: 'user',
         content: `Você é o assistente Career OS da plataforma VRAXIA WORK.

@@ -1,6 +1,7 @@
 // headhunter-script — gera scripts proativos para abordar headhunters e recrutadores
 import Anthropic from '@anthropic-ai/sdk';
 import { AgentPlugin, AgentContext, AgentResult } from '../plugin-interface.js';
+import { claudeMaxTokens, claudeModel } from '../../claude-budget.js';
 
 export const headhunterScript: AgentPlugin = {
   id:              'headhunter-script',
@@ -23,8 +24,8 @@ export const headhunterScript: AgentPlugin = {
 
     const client = new Anthropic({ apiKey: ctx.apiKey });
     const r = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 800,
+      model: claudeModel('claude-haiku-4-5-20251001'),
+      max_tokens: claudeMaxTokens(800),
       messages: [{
         role: 'user',
         content: `Você escreve mensagens de networking para engenheiros de software sênior.

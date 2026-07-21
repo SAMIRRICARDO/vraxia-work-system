@@ -40,6 +40,8 @@ import { coverLetter } from '../marketplace/plugins/cover-letter.js';
 import { LearningEngine } from '../engine/learning-engine.js';
 import { deployDashboard } from '../deploy/dashboard.js';
 
+const MAX_GOVERNED_APPLICATIONS = Math.max(1, Number(process.env.VRAXIA_WORK_MAX_DAILY_APPLICATIONS ?? 8));
+
 program
   .option('--platform <p>', 'Plataforma: linkedin | gupy | catho | all', 'all')
   .option('--dry-run', 'Nao submete — apenas escaneia e filtra')
@@ -52,6 +54,8 @@ program
   .parse();
 
 const opts = program.opts();
+const requestedApplyLimit = Math.max(1, parseInt(opts.limit, 10) || MAX_GOVERNED_APPLICATIONS);
+const governedApplyLimit = Math.min(requestedApplyLimit, MAX_GOVERNED_APPLICATIONS);
 
 const KEYWORDS = [
   'AI Engineer',
@@ -112,7 +116,7 @@ const LINKEDIN_CONFIG_SP_ONSITE: JobSearchConfig = {
   workType: 'ONSITE_HYBRID',
   companyBlacklist: [],
   titleBlacklist: TITLE_BLACKLIST,
-  maxApplicationsPerRun: parseInt(opts.limit, 10),
+  maxApplicationsPerRun: governedApplyLimit,
 };
 
 // 2ª prioridade: qualquer modalidade em SP (inclui remotos postados com loc. SP)
@@ -126,7 +130,7 @@ const LINKEDIN_CONFIG_SP: JobSearchConfig = {
   remoteOnly: false,
   companyBlacklist: [],
   titleBlacklist: TITLE_BLACKLIST,
-  maxApplicationsPerRun: parseInt(opts.limit, 10),
+  maxApplicationsPerRun: governedApplyLimit,
 };
 
 // 3ª prioridade: vagas 100% remotas de qualquer lugar do Brasil/mundo
@@ -140,7 +144,7 @@ const LINKEDIN_CONFIG_BRASIL: JobSearchConfig = {
   remoteOnly: true,
   companyBlacklist: [],
   titleBlacklist: TITLE_BLACKLIST,
-  maxApplicationsPerRun: parseInt(opts.limit, 10),
+  maxApplicationsPerRun: governedApplyLimit,
 };
 
 // 4ª prioridade: vagas com candidatura externa (Greenhouse, Lever, Workday)
@@ -155,7 +159,7 @@ const LINKEDIN_CONFIG_EXTERNAL: JobSearchConfig = {
   remoteOnly: true,
   companyBlacklist: [],
   titleBlacklist: TITLE_BLACKLIST,
-  maxApplicationsPerRun: parseInt(opts.limit, 10),
+  maxApplicationsPerRun: governedApplyLimit,
 };
 
 const GUPY_CONFIG = {
@@ -540,7 +544,10 @@ async function processJob(
 async function main() {
   const platform = opts.platform as 'linkedin' | 'gupy' | 'catho' | 'all';
   const dryRun = !!opts.dryRun;
-  const maxApply = parseInt(opts.limit, 10);
+  const maxApply = governedApplyLimit;
+  if (requestedApplyLimit !== governedApplyLimit) {
+    console.log(`[Governance] Limite solicitado (${requestedApplyLimit}) reduzido para ${governedApplyLimit}.`);
+  }
 
   console.log(`\nVRAXIA WORK — Hunt Mode [${platform.toUpperCase()}]${dryRun ? ' DRY RUN' : ''}`);
   console.log(`Hire Intelligence Engine active — HIRE_THRESHOLD: ${HIRE_THRESHOLD}/100\n`);

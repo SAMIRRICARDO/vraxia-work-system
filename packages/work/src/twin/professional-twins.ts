@@ -309,6 +309,34 @@ export class ProfessionalTwinsStore {
       )
     `);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_otl_job ON outcome_timeline(job_id)`);
+    // Idempotent: add scheduled_at column for interview agenda
+    try { this.db.run(`ALTER TABLE outcome_timeline ADD COLUMN scheduled_at TEXT`); } catch { /* já existe */ }
+
+    // ── Recruitment Pipeline CRM ──────────────────────────────────────────────
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS pipeline_opportunities (
+        id               TEXT PRIMARY KEY,
+        company          TEXT NOT NULL,
+        position         TEXT NOT NULL,
+        priority         TEXT DEFAULT 'P3',
+        status           TEXT DEFAULT 'initial_contact',
+        contract_type    TEXT,
+        salary_expectation INTEGER,
+        offer_details    TEXT,
+        recruiter_name   TEXT,
+        recruiter_role   TEXT,
+        recruiter_email  TEXT,
+        invite_email     TEXT,
+        interview_date   TEXT,
+        preparation_topics TEXT,
+        notes            TEXT,
+        next_action      TEXT,
+        follow_up_date   TEXT,
+        probability      INTEGER DEFAULT 50,
+        created_at       TEXT NOT NULL,
+        updated_at       TEXT NOT NULL
+      )
+    `);
 
     // ── New columns on hire_scores (idempotent) ────────────────────────────────
     const addHSCol = (col: string, def: string) => {
@@ -674,25 +702,27 @@ export class ProfessionalTwinsStore {
     outcomeState: string;
     notes?: string;
     daysSinceApply?: number;
+    scheduledAt?: string;
   }): void {
     this.db.run(`
-      INSERT INTO outcome_timeline (id, job_id, twin_id, outcome_state, notes, days_since_apply, created_at)
-      VALUES (?,?,?,?,?,?,?)
+      INSERT INTO outcome_timeline (id, job_id, twin_id, outcome_state, notes, days_since_apply, created_at, scheduled_at)
+      VALUES (?,?,?,?,?,?,?,?)
       ON CONFLICT(id) DO NOTHING
     `, [
       entry.id, entry.jobId, entry.twinId, entry.outcomeState,
       entry.notes ?? null, entry.daysSinceApply ?? null,
       new Date().toISOString(),
+      entry.scheduledAt ?? null,
     ]);
     this.persist();
   }
 
   getOutcomeTimeline(jobId: string): Array<{
     id: string; jobId: string; twinId: string; outcomeState: string;
-    notes: string | null; daysSinceApply: number | null; createdAt: string;
+    notes: string | null; daysSinceApply: number | null; createdAt: string; scheduledAt: string | null;
   }> {
     const res = this.db.exec(
-      `SELECT id, job_id, twin_id, outcome_state, notes, days_since_apply, created_at
+      `SELECT id, job_id, twin_id, outcome_state, notes, days_since_apply, created_at, scheduled_at
        FROM outcome_timeline WHERE job_id = ? ORDER BY created_at ASC`,
       [jobId],
     );
@@ -709,8 +739,123 @@ export class ProfessionalTwinsStore {
         notes:          obj['notes'] as string | null,
         daysSinceApply: obj['days_since_apply'] as number | null,
         createdAt:      obj['created_at'] as string,
+        scheduledAt:    obj['scheduled_at'] as string | null,
       };
     });
+  }
+
+  // Returns all timeline entries that have a scheduled date, joined with job info
+  getScheduledInterviews(): Array<{
+    id: string; jobId: string; company: string; jobTitle: string;
+    outcomeState: string; notes: string | null; scheduledAt: string; createdAt: string;
+  }> {
+    const res = this.db.exec(
+      `SELECT ot.id, ot.job_id, ot.outcome_state, ot.notes, ot.scheduled_at, ot.created_at,
+              ja.company, ja.job_title
+       FROM outcome_timeline ot
+       LEFT JOIN job_applications ja ON ja.id = ot.job_id
+       WHERE ot.scheduled_at IS NOT NULL
+       ORDER BY ot.scheduled_at ASC`,
+    );
+    if (!res.length) return [];
+    const cols = res[0].columns;
+    return res[0].values.map(row => {
+      const obj: Record<string, unknown> = {};
+      cols.forEach((c, i) => obj[c] = row[i]);
+      return {
+        id:           obj['id'] as string,
+        jobId:        obj['job_id'] as string,
+        company:      (obj['company'] as string) ?? '',
+        jobTitle:     (obj['job_title'] as string) ?? '',
+        outcomeState: obj['outcome_state'] as string,
+        notes:        obj['notes'] as string | null,
+        scheduledAt:  obj['scheduled_at'] as string,
+        createdAt:    obj['created_at'] as string,
+      };
+    });
+  }
+
+  // ── Pipeline CRM ──────────────────────────────────────────────────────────
+
+  savePipelineOpp(opp: {
+    id: string; company: string; position: string; priority?: string; status?: string;
+    contractType?: string; salaryExpectation?: number; offerDetails?: string;
+    recruiterName?: string; recruiterRole?: string; recruiterEmail?: string; inviteEmail?: string;
+    interviewDate?: string; preparationTopics?: string[]; notes?: string;
+    nextAction?: string; followUpDate?: string; probability?: number;
+  }): void {
+    const now = new Date().toISOString();
+    this.db.run(`
+      INSERT INTO pipeline_opportunities
+        (id,company,position,priority,status,contract_type,salary_expectation,offer_details,
+         recruiter_name,recruiter_role,recruiter_email,invite_email,interview_date,
+         preparation_topics,notes,next_action,follow_up_date,probability,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(id) DO UPDATE SET
+        company=excluded.company, position=excluded.position, priority=excluded.priority,
+        status=excluded.status, contract_type=excluded.contract_type,
+        salary_expectation=excluded.salary_expectation, offer_details=excluded.offer_details,
+        recruiter_name=excluded.recruiter_name, recruiter_role=excluded.recruiter_role,
+        recruiter_email=excluded.recruiter_email, invite_email=excluded.invite_email,
+        interview_date=excluded.interview_date, preparation_topics=excluded.preparation_topics,
+        notes=excluded.notes, next_action=excluded.next_action,
+        follow_up_date=excluded.follow_up_date, probability=excluded.probability,
+        updated_at=excluded.updated_at
+    `, [
+      opp.id, opp.company, opp.position,
+      opp.priority ?? 'P3', opp.status ?? 'initial_contact',
+      opp.contractType ?? null, opp.salaryExpectation ?? null, opp.offerDetails ?? null,
+      opp.recruiterName ?? null, opp.recruiterRole ?? null, opp.recruiterEmail ?? null,
+      opp.inviteEmail ?? null, opp.interviewDate ?? null,
+      opp.preparationTopics ? JSON.stringify(opp.preparationTopics) : null,
+      opp.notes ?? null, opp.nextAction ?? null, opp.followUpDate ?? null,
+      opp.probability ?? 50, now, now,
+    ]);
+    this.persist();
+  }
+
+  getPipelineOpps(): Array<Record<string, unknown>> {
+    const res = this.db.exec(
+      `SELECT * FROM pipeline_opportunities ORDER BY priority ASC, created_at ASC`,
+    );
+    if (!res.length) return [];
+    const cols = res[0].columns;
+    return res[0].values.map(row => {
+      const obj: Record<string, unknown> = {};
+      cols.forEach((c, i) => obj[c] = row[i]);
+      if (typeof obj['preparation_topics'] === 'string') {
+        try { obj['preparation_topics'] = JSON.parse(obj['preparation_topics'] as string); } catch { obj['preparation_topics'] = []; }
+      }
+      return obj;
+    });
+  }
+
+  updatePipelineOpp(id: string, updates: Record<string, unknown>): void {
+    const allowed = ['status','priority','contract_type','salary_expectation','offer_details',
+      'recruiter_name','recruiter_role','recruiter_email','invite_email','interview_date',
+      'preparation_topics','notes','next_action','follow_up_date','probability'];
+    const sets: string[] = [];
+    const vals: unknown[] = [];
+    for (const [k, v] of Object.entries(updates)) {
+      if (!allowed.includes(k)) continue;
+      sets.push(`${k}=?`);
+      vals.push(k === 'preparation_topics' && Array.isArray(v) ? JSON.stringify(v) : v);
+    }
+    if (!sets.length) return;
+    sets.push('updated_at=?');
+    vals.push(new Date().toISOString(), id);
+    this.db.run(`UPDATE pipeline_opportunities SET ${sets.join(',')} WHERE id=?`, vals);
+    this.persist();
+  }
+
+  deletePipelineOpp(id: string): void {
+    this.db.run(`DELETE FROM pipeline_opportunities WHERE id=?`, [id]);
+    this.persist();
+  }
+
+  countPipelineOpps(): number {
+    const res = this.db.exec(`SELECT COUNT(*) FROM pipeline_opportunities`);
+    return (res[0]?.values[0]?.[0] as number) ?? 0;
   }
 
   // ── Update decision_score in hire_scores ──────────────────────────────────

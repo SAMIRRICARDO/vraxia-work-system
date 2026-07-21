@@ -4,6 +4,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { SalaryAdvice } from '../types/index.js';
 import { TwinStore } from '../twin/candidate-twin.js';
+import { claudeMaxTokens, claudeModel } from '../claude-budget.js';
 
 export class SalaryAdvisor {
   private client: Anthropic;
@@ -47,8 +48,8 @@ Retorne APENAS JSON válido:
 
     try {
       const response = await this.client.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
+        model: claudeModel('claude-sonnet-4-6'),
+        max_tokens: claudeMaxTokens(1024),
         messages: [{ role: 'user', content: prompt }],
       });
 

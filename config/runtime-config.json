@@ -6,7 +6,7 @@
   "runTime": "07:30",
   "weekendBlocked": true,
   "maxOutputTokens": 300,
-  "avoidReasoning": false,
+  "avoidReasoning": true,
   "jsonOnly": true,
   "alwaysEnrichLeads": true,
   "requireEnrichmentBeforeOutbound": true,

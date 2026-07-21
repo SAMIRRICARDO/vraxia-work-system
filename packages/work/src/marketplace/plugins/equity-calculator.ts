@@ -1,6 +1,7 @@
 // equity-calculator — calcula compensação total real (salário + equity + benefícios)
 import Anthropic from '@anthropic-ai/sdk';
 import { AgentPlugin, AgentContext, AgentResult } from '../plugin-interface.js';
+import { claudeMaxTokens, claudeModel } from '../../claude-budget.js';
 
 export const equityCalculator: AgentPlugin = {
   id:              'equity-calculator',
@@ -33,8 +34,8 @@ export const equityCalculator: AgentPlugin = {
 
     const client = new Anthropic({ apiKey: ctx.apiKey });
     const r = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 600,
+      model: claudeModel('claude-haiku-4-5-20251001'),
+      max_tokens: claudeMaxTokens(600),
       messages: [{
         role: 'user',
         content: `Analise o pacote de compensação desta vaga.

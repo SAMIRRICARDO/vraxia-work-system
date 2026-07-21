@@ -6,6 +6,7 @@ import { Job, MatchScore, MatchDimensions, ApplyAction } from '../types/index.js
 import { VaultRetriever } from '../rag/retriever.js';
 import { ModalityDetector } from '../engine/modality-detector.js';
 import { TwinStore } from '../twin/candidate-twin.js';
+import { claudeMaxTokens, claudeModel } from '../claude-budget.js';
 
 const APPLY_THRESHOLD  = 75;
 const REVIEW_THRESHOLD = 50;
@@ -71,8 +72,8 @@ Regras:
 
     try {
       const response = await this.client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 256,
+        model: claudeModel('claude-haiku-4-5-20251001'),
+        max_tokens: claudeMaxTokens(256),
         messages: [{ role: 'user', content: prompt }],
       });
 

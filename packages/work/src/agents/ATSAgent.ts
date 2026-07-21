@@ -5,6 +5,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { ATSResult } from '../types/index.js';
 import { TwinStore } from '../twin/candidate-twin.js';
 import { VaultRetriever } from '../rag/retriever.js';
+import { claudeMaxTokens, claudeModel } from '../claude-budget.js';
 
 export class ATSAgent {
   private client: Anthropic;
@@ -58,8 +59,8 @@ Retorne APENAS JSON válido:
 
     try {
       const response = await this.client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
+        model: claudeModel('claude-haiku-4-5-20251001'),
+        max_tokens: claudeMaxTokens(1024),
         messages: [{ role: 'user', content: prompt }],
       });
 

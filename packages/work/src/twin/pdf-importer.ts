@@ -2,6 +2,7 @@
 // PDF/TXT → Haiku normaliza → CandidateTwin → QA cache + vault hints
 
 import Anthropic from '@anthropic-ai/sdk';
+import { claudeMaxTokens, claudeModel } from '../claude-budget.js';
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
@@ -137,8 +138,8 @@ export class PDFImporter {
     console.log(`[PDFImporter] ${text.length} chars extraídos. Enviando para Haiku...`);
 
     const response = await this.client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
+      model: claudeModel('claude-haiku-4-5-20251001'),
+      max_tokens: claudeMaxTokens(4096),
       messages: [{ role: 'user', content: EXTRACT_PROMPT(text) }],
     });
 

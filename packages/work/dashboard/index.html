@@ -265,6 +265,9 @@
     /* ── Show/Hide sections ────────────────────────────────────────────── */
     .sec-page{display:none;}
     .sec-page.active{display:block;}
+    /* ── D.I.A. active-process row highlight ───────────────────────────── */
+    .dia-active-row{background:rgba(251,191,36,.07)!important;border-left:3px solid #fbbf24;}
+    .dia-active-row td:first-child{padding-left:calc(.75rem + 3px);}
   </style>
 </head>
 <body class="h-full overflow-hidden">
@@ -351,6 +354,15 @@
       </div>
       <div class="nav-item" id="nav-analytics-full" onclick="navTo('sec-analytics-full')">
         <i data-lucide="trending-up" style="width:15px;height:15px"></i> Analytics
+      </div>
+      <div class="nav-item" id="nav-pipeline" onclick="navTo('sec-pipeline')" style="position:relative;">
+        <i data-lucide="git-branch" style="width:15px;height:15px;color:#fbbf24;"></i>
+        <span style="color:#fbbf24;font-weight:600;">Pipeline CRM</span>
+        <span id="nav-pipeline-badge" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);background:#fbbf24;color:#000;font-size:9px;font-weight:800;padding:1px 5px;border-radius:20px;"></span>
+      </div>
+      <div class="nav-item" id="nav-agenda" onclick="navTo('sec-agenda')" style="position:relative;">
+        <i data-lucide="calendar-clock" style="width:15px;height:15px"></i> Agenda
+        <span id="nav-agenda-badge" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);background:#fbbf24;color:#000;font-size:9px;font-weight:800;padding:1px 5px;border-radius:20px;"></span>
       </div>
 
       <div class="px-4 mt-4 mb-2 text-xs text-gray-700 uppercase tracking-wider font-semibold">Ferramentas</div>
@@ -473,12 +485,17 @@
       </div>
 
       <!-- System notice -->
-      <div id="system-notice" style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.25);border-radius:14px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;">
-        <span style="font-size:18px;flex-shrink:0;">⚠️</span>
-        <div>
-          <div style="font-size:12px;font-weight:700;color:#fde68a;font-family:'JetBrains Mono',monospace;margin-bottom:3px;">BUG CORRIGIDO — 19/07/2026 · Easy Apply skipRedirect</div>
+      <div id="system-notice" style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.3);border-radius:14px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;">
+        <span style="font-size:18px;flex-shrink:0;">🔴</span>
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:700;color:#fca5a5;font-family:'JetBrains Mono',monospace;margin-bottom:3px;">BUG CORRIGIDO — 20/07/2026 · Sidebar hijacking botão Easy Apply</div>
           <div style="font-size:11px;color:#9ca3af;line-height:1.6;">
-            Após clicar no botão <b style="color:#fde68a;">Candidatura simplificada</b>, o LinkedIn navegava para <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;">?skipRedirect=true</code> em vez de abrir o modal. O engine voltava à vaga mas <b style="color:#e5e7eb;">nunca reclicava o botão</b>, então o modal nunca abria — candidatura falhava. Fix: após recovery, re-find + re-click automático. Afetou vaga CI&T (4442513091) no ciclo de 06h. Próxima sessão corrigida.
+            Rodada de hoje (03h) — <b style="color:#fca5a5;">3 de 4 candidaturas falharam.</b>
+            O <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;">findEasyApplyButton</code> estava pegando links <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;">skipRedirect=true</code>
+            do painel <b style="color:#e5e7eb;">Vagas Semelhantes</b> (sidebar) — que apontam para <i>outros</i> jobs —
+            em vez do botão da vaga principal. Ao clicar, o LinkedIn navegava para a página de busca e o modal nunca abria.
+            <br><b style="color:#86efac;">Fix aplicado:</b> estratégia scoped no top-card + filtro de anchors cujo <code>currentJobId</code> não bate com a vaga atual.
+            Próxima rodada deve confirmar o fix.
           </div>
         </div>
         <button onclick="document.getElementById('system-notice').style.display='none'" style="flex-shrink:0;background:none;border:none;color:#6b7280;cursor:pointer;font-size:16px;line-height:1;padding:0;margin-left:auto;">×</button>
@@ -533,6 +550,30 @@
           <div class="text-xs font-mono text-gray-600 uppercase tracking-widest mb-2">Histórico de Jobs</div>
           <div id="home-rda-jobs" class="flex flex-col gap-2">
             <div class="text-xs text-gray-700 text-center py-2 font-mono">Nenhum job ainda</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Pipeline CRM Widgets ─────────────────────────────────────────── -->
+      <div class="glass rounded-2xl border border-yellow-500/20 mb-5 p-4" style="background:rgba(251,191,36,.02);">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span style="font-size:14px;">🎯</span>
+            <span class="text-xs font-mono text-yellow-400 uppercase tracking-widest font-semibold">Processos Seletivos Ativos</span>
+          </div>
+          <button onclick="navTo('sec-pipeline')" class="text-xs text-yellow-400 hover:text-yellow-300 transition">Ver Pipeline →</button>
+        </div>
+
+        <!-- KPI mini row -->
+        <div id="home-pipeline-kpis" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-bottom:14px;">
+          <div class="empty-state py-2 text-xs"><span class="spinner"></span></div>
+        </div>
+
+        <!-- Upcoming interviews timeline -->
+        <div style="margin-bottom:4px;">
+          <div class="text-xs text-gray-600 uppercase tracking-widest mb-2">📅 Próximas Entrevistas</div>
+          <div id="home-upcoming-interviews" style="display:flex;flex-direction:column;gap:6px;">
+            <div class="empty-state py-2 text-xs"><span class="spinner"></span></div>
           </div>
         </div>
       </div>
@@ -1527,6 +1568,94 @@
       </div>
     </div>
 
+    <!-- ── SECTION: RECRUITMENT PIPELINE CRM ────────────────────────────────── -->
+    <div id="sec-pipeline" class="sec-page px-8 py-6 border-b border-white/5">
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-5">
+        <div class="flex items-center gap-3">
+          <span class="live-dot" style="background:#fbbf24;box-shadow:0 0 8px rgba(251,191,36,.7)"></span>
+          <span class="text-xs font-mono text-gray-400 uppercase tracking-widest">Recruitment Pipeline CRM</span>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="loadPipeline()" class="btn btn-ghost text-xs">↻ refresh</button>
+          <button onclick="openAddPipeline()" class="btn btn-primary text-xs">+ Nova Oportunidade</button>
+        </div>
+      </div>
+
+      <!-- Pipeline Stats -->
+      <div id="pipeline-stats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:20px;"></div>
+
+      <!-- Timeline strip -->
+      <div id="pipeline-timeline" style="margin-bottom:24px;"></div>
+
+      <!-- Kanban-style cards -->
+      <div id="pipeline-cards" style="display:flex;flex-direction:column;gap:12px;"></div>
+
+      <!-- Add/Edit modal -->
+      <div id="pipeline-modal" style="display:none;position:fixed;inset:0;z-index:1004;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);" onclick="if(event.target===this)closePipelineModal()">
+        <div class="glass" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(620px,95vw);max-height:90vh;overflow-y:auto;border-radius:20px;padding:28px;border:1px solid rgba(251,191,36,.25);">
+          <div class="flex justify-between items-center mb-5">
+            <div style="font-size:14px;font-weight:700;color:#fbbf24;">🎯 Oportunidade Pipeline</div>
+            <button onclick="closePipelineModal()" class="btn btn-ghost text-xs">✕</button>
+          </div>
+          <div class="space-y-3" id="pipeline-form">
+            <div class="grid grid-cols-2 gap-3">
+              <div><div class="text-xs text-gray-500 mb-1">Empresa *</div><input id="pf-company" class="filter-select w-full" placeholder="Ex: Itaú Unibanco" /></div>
+              <div><div class="text-xs text-gray-500 mb-1">Cargo *</div><input id="pf-position" class="filter-select w-full" placeholder="Ex: AI Solutions Architect" /></div>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+              <div><div class="text-xs text-gray-500 mb-1">Prioridade</div>
+                <select id="pf-priority" class="filter-select w-full"><option>P1</option><option>P2</option><option selected>P3</option><option>P4</option><option>P5</option></select></div>
+              <div><div class="text-xs text-gray-500 mb-1">Status</div>
+                <select id="pf-status" class="filter-select w-full">
+                  <option value="initial_contact">Contato Inicial</option>
+                  <option value="interview_scheduled">Entrevista Agendada</option>
+                  <option value="rh_interview">Entrev. RH</option>
+                  <option value="technical_interview_completed">Entrev. Técnica Concluída</option>
+                  <option value="culture_fit_completed">Culture Fit Concluído</option>
+                  <option value="awaiting_feedback">Aguardando Feedback</option>
+                  <option value="offer_received">Oferta Recebida</option>
+                  <option value="hired">Contratado</option>
+                  <option value="rejected">Recusado</option>
+                </select></div>
+              <div><div class="text-xs text-gray-500 mb-1">Prob. (%)</div><input type="number" id="pf-probability" class="filter-select w-full" min="0" max="100" value="50" /></div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><div class="text-xs text-gray-500 mb-1">Recrutador</div><input id="pf-recruiter" class="filter-select w-full" placeholder="Nome do recrutador" /></div>
+              <div><div class="text-xs text-gray-500 mb-1">Cargo do recrutador</div><input id="pf-recruiter-role" class="filter-select w-full" placeholder="Ex: Coordinator ML" /></div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><div class="text-xs text-gray-500 mb-1">Data/Hora da Entrevista</div><input type="datetime-local" id="pf-interview-date" class="filter-select w-full" /></div>
+              <div><div class="text-xs text-gray-500 mb-1">Tipo de Contrato</div>
+                <select id="pf-contract" class="filter-select w-full"><option value="">—</option><option>CLT</option><option>PJ</option><option>Híbrido</option></select></div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><div class="text-xs text-gray-500 mb-1">Pretensão Salarial (R$)</div><input type="number" id="pf-salary" class="filter-select w-full" placeholder="Ex: 15000" /></div>
+              <div><div class="text-xs text-gray-500 mb-1">E-mail do convite</div><input id="pf-invite-email" class="filter-select w-full" placeholder="email@empresa.com" /></div>
+            </div>
+            <div><div class="text-xs text-gray-500 mb-1">Detalhes da oferta / benefícios</div><textarea id="pf-offer" class="filter-select w-full" rows="2" placeholder="Ex: R$30k PJ + allowance + comissão..."></textarea></div>
+            <div><div class="text-xs text-gray-500 mb-1">Tópicos de Preparação (separados por vírgula)</div><input id="pf-topics" class="filter-select w-full" placeholder="Ex: RAG, LLMOps, Kubernetes, Docker..." /></div>
+            <div><div class="text-xs text-gray-500 mb-1">Próxima Ação</div><input id="pf-next-action" class="filter-select w-full" placeholder="Ex: Preparar apresentação técnica" /></div>
+            <div><div class="text-xs text-gray-500 mb-1">Notas</div><textarea id="pf-notes" class="filter-select w-full" rows="2" placeholder="Contexto, observações, histórico..."></textarea></div>
+          </div>
+          <div class="flex gap-2 mt-5">
+            <button onclick="savePipelineOpp()" class="btn btn-primary flex-1">Salvar</button>
+            <button onclick="closePipelineModal()" class="btn btn-ghost flex-1">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SECTION: AGENDA DE ENTREVISTAS ───────────────────────────────────── -->
+    <div id="sec-agenda" class="sec-page px-8 py-6 border-b border-white/5">
+      <div class="flex items-center gap-2 mb-5">
+        <span class="live-dot" style="background:#fbbf24;box-shadow:0 0 6px rgba(251,191,36,.6)"></span>
+        <span class="text-xs font-mono text-gray-400 uppercase tracking-widest">Agenda de Entrevistas</span>
+        <button onclick="loadAgenda()" class="ml-auto text-xs text-gray-600 hover:text-gray-400 transition">↻ refresh</button>
+      </div>
+      <div id="agenda-content" style="min-height:80px;"></div>
+    </div>
+
     <!-- ── SECTION 7: TRUTH ENGINE ─────────────────────────────────────────── -->
     <div id="sec-truth" class="sec-page px-8 py-6 border-b border-white/5">
       <div class="flex items-center gap-2 mb-2">
@@ -2019,6 +2148,8 @@ const SEC_TO_NAV = {
   'sec-hunt':           'nav-hunt',
   'sec-questionnaire':  'nav-questionnaire',
   'sec-analytics-full': 'nav-analytics-full',
+  'sec-pipeline':       'nav-pipeline',
+  'sec-agenda':         'nav-agenda',
   'sec-marketplace':    'nav-marketplace',
   'sec-learning':       'nav-learning',
   'sec-network':        'nav-network',
@@ -2049,6 +2180,9 @@ function navTo(secId) {
   const main = document.getElementById('main');
   if (main) main.scrollTop = 0;
   if (window.innerWidth <= 768) closeSidebar();
+  // Lazy-load section data on first visit
+  if (resolved === 'sec-agenda')    loadAgenda();
+  if (resolved === 'sec-pipeline')  loadPipeline();
 }
 
 function filterPlatform(platform) {
@@ -2233,6 +2367,12 @@ const DIA_COLORS = {
   offer: '#fbbf24', rejected: '#ef4444', ghost: '#6b7280', hired: '#22d3ee',
 };
 
+// States that represent an ongoing selection process → yellow row highlight
+const DIA_ACTIVE_STATES = new Set([
+  'recruiter_contact','questionnaire','english_test',
+  'rh_interview','technical_interview','manager_interview','offer',
+]);
+
 function outcomeBadge(jobId) {
   const dia = _diaMap[jobId];
   if (!dia?.current || dia.current === 'applied') return '<span style="color:#374151;font-size:10px;">—</span>';
@@ -2256,8 +2396,9 @@ function renderAppRows(rows) {
       hs?.publication_age_days ?? null,
     );
     // data-job-id is used by Phase 3 (WHY NOT) and Phase 4 (HOW TO WIN) buttons
+    const diaActiveClass = DIA_ACTIVE_STATES.has(_diaMap[row.id]?.current) ? ' dia-active-row' : '';
     return `
-    <tr data-job-id="${esc(row.id)}">
+    <tr data-job-id="${esc(row.id)}" class="${diaActiveClass.trim()}">
       <td class="text-gray-500 text-xs font-mono whitespace-nowrap">${fmtDate(row.updated_at)}</td>
       <td class="text-white font-semibold max-w-[140px] truncate">${esc(row.company)}</td>
       <td class="text-gray-300 max-w-[200px] truncate text-xs">${esc(row.job_title)}</td>
@@ -2922,6 +3063,7 @@ async function refreshAll() {
   loadCareerIntelligence();   // non-blocking — shows empty state if no outcomes
   loadPredictionStats();      // non-blocking — shows empty state if no outcomes
   refreshDIAMap();            // non-blocking — populates _diaMap for outcome badges
+  refreshAgendaBadge();       // non-blocking — shows upcoming interview count in sidebar
   loadEnhancedAnalytics();    // non-blocking — analytics section
 }
 
@@ -2976,6 +3118,7 @@ async function init() {
 
   await refreshAll();
   await Promise.allSettled([loadHome(), loadHomeEnriched(), loadAnalytics(), loadAnalyticsFull(), loadTruth(), loadLearning(), loadCRM(), loadMarketplace()]);
+  loadPipeline();        // non-blocking — seeds data + renders home widgets
 
   // Show home section on load
   navTo('sec-home');
@@ -4924,6 +5067,45 @@ function renderDIAContent(jobId, company, jobTitle, currentState, timeline) {
     </button>`;
   }).join('');
 
+  // Contextual fields based on current state
+  const isInterview = ['rh_interview','technical_interview','manager_interview'].includes(currentState);
+  const isContact   = currentState === 'recruiter_contact';
+  const schedBorder = isInterview ? '#fbbf24' : '#1f2937';
+
+  const scheduleField = `
+    <div style="margin-bottom:10px;">
+      <div style="font-size:11px;color:#6b7280;margin-bottom:5px;">📅 ${isInterview ? 'Data/hora da entrevista' : 'Data/hora agendada (opcional)'}</div>
+      <input type="datetime-local" id="dia-schedule-input"
+        style="width:100%;padding:7px 10px;border-radius:8px;background:#111827;border:1px solid ${schedBorder};color:#e5e7eb;font-size:12px;" />
+    </div>`;
+
+  const contactField = isContact ? `
+    <div style="margin-bottom:10px;">
+      <div style="font-size:11px;color:#6b7280;margin-bottom:5px;">👤 Recrutador / contato</div>
+      <input type="text" id="dia-contact-input" placeholder="Ex: Ana Silva — ana.silva@empresa.com"
+        style="width:100%;padding:7px 10px;border-radius:8px;background:#111827;border:1px solid #22d3ee;color:#e5e7eb;font-size:12px;" />
+    </div>` : '';
+
+  const notePlaceholders = {
+    recruiter_contact:    'Ex: Ligou para apresentar a vaga, pediu CV atualizado...',
+    questionnaire:        'Ex: 10 perguntas técnicas + redação em inglês, prazo 48h...',
+    english_test:         'Ex: Teste escrito + oral, nível B2 requerido...',
+    rh_interview:         'Ex: Entrevista comportamental 30min, perguntaram sobre fit cultural...',
+    technical_interview:  'Ex: Live coding Python, algoritmos de busca, whiteboard...',
+    manager_interview:    'Ex: Conversa com gerente de TI, alinhamento de expectativas...',
+    offer:                'Ex: Oferta R$ 8.000 + benefícios, prazo de resposta 48h...',
+    rejected:             'Ex: Feedback: buscavam perfil sênior com 5+ anos em Java...',
+    ghost:                'Ex: Sem retorno após 3 semanas de follow-up...',
+  };
+  const notePlaceholder = notePlaceholders[currentState] ?? 'Notas, feedback ou detalhes sobre este estado...';
+
+  const activeAlert = DIA_ACTIVE_STATES.has(currentState)
+    ? `<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);margin-bottom:12px;">
+        <span style="font-size:13px;">🔔</span>
+        <span style="font-size:11px;color:#fbbf24;font-weight:600;">Processo em andamento — vaga destacada em amarelo na tabela</span>
+      </div>`
+    : '';
+
   const timelineHtml = timeline.length
     ? timeline.map(t => {
         const col = DIA_COLORS[t.outcome_state] ?? '#6b7280';
@@ -4931,8 +5113,8 @@ function renderDIAContent(jobId, company, jobTitle, currentState, timeline) {
           <div style="width:8px;height:8px;border-radius:50%;background:${col};margin-top:4px;flex-shrink:0;"></div>
           <div style="flex:1;">
             <div style="font-size:12px;font-weight:600;color:${col};">${DIA_LABELS[t.outcome_state] ?? t.outcome_state}</div>
-            <div style="font-size:10px;color:#6b7280;margin-top:2px;">${t.created_at ? new Date(t.created_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : ''}</div>
-            ${t.notes ? `<div style="font-size:11px;color:#9ca3af;margin-top:2px;">${esc(t.notes)}</div>` : ''}
+            <div style="font-size:10px;color:#6b7280;margin-top:2px;">${t.created_at ? new Date(t.created_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : ''}</div>
+            ${t.notes ? `<div style="font-size:11px;color:#9ca3af;margin-top:3px;white-space:pre-wrap;">${esc(t.notes)}</div>` : ''}
           </div>
         </div>`;
       }).join('')
@@ -4945,19 +5127,37 @@ function renderDIAContent(jobId, company, jobTitle, currentState, timeline) {
         ${stateButtons}
       </div>
     </div>
-    <div id="dia-notes-area" style="margin-bottom:16px;">
-      <div style="font-size:11px;color:#6b7280;margin-bottom:6px;">Nota (opcional)</div>
-      <textarea id="dia-note-input" placeholder="Ex: Recebi retorno do recrutador, entrevista agendada para quinta..." style="width:100%;padding:8px 10px;border-radius:8px;background:#111827;border:1px solid #1f2937;color:#e5e7eb;font-size:12px;resize:none;min-height:60px;"></textarea>
+    <div id="dia-notes-area" style="margin-bottom:16px;padding:12px;background:rgba(17,24,39,.5);border-radius:10px;border:1px solid #1f2937;">
+      <div style="font-size:11px;color:#9ca3af;margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">📋 Detalhes do registro</div>
+      ${activeAlert}
+      ${scheduleField}
+      ${contactField}
+      <div>
+        <div style="font-size:11px;color:#6b7280;margin-bottom:5px;">📝 Notas / Feedback</div>
+        <textarea id="dia-note-input" placeholder="${notePlaceholder}"
+          style="width:100%;padding:8px 10px;border-radius:8px;background:#111827;border:1px solid #1f2937;color:#e5e7eb;font-size:12px;resize:none;min-height:70px;box-sizing:border-box;"></textarea>
+      </div>
+      <div style="font-size:10px;color:#4b5563;margin-top:6px;">💡 Preencha os detalhes e clique no estado acima para salvar.</div>
     </div>
     <div style="margin-top:16px;">
       <div style="font-size:11px;color:#6b7280;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;">Histórico</div>
-      <div style="max-height:200px;overflow-y:auto;">${timelineHtml}</div>
+      <div style="max-height:220px;overflow-y:auto;">${timelineHtml}</div>
     </div>
   `;
 }
 
 async function recordDIAState(jobId, state, company, jobTitle) {
-  const notes = ($('dia-note-input')?.value ?? '').trim();
+  // Collect all detail fields
+  const notesRaw  = ($('dia-note-input')?.value    ?? '').trim();
+  const schedule  = ($('dia-schedule-input')?.value ?? '').trim();
+  const contact   = ($('dia-contact-input')?.value  ?? '').trim();
+
+  // Build structured notes (contact + freeform text); scheduledAt goes as its own field
+  const parts = [];
+  if (contact) parts.push(`👤 ${contact}`);
+  if (notesRaw) parts.push(notesRaw);
+  const notes = parts.join('\n');
+
   const btn = event.target.closest('button');
   if (btn) btn.style.opacity = '.5';
 
@@ -4965,7 +5165,7 @@ async function recordDIAState(jobId, state, company, jobTitle) {
     const r = await fetch(`${API}/api/work/applications/${encodeURIComponent(jobId)}/dia`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ outcomeState: state, notes }),
+      body: JSON.stringify({ outcomeState: state, notes, scheduledAt: schedule || undefined }),
     });
     const d = await r.json();
     if (d.error) { alert('Erro: ' + d.error); return; }
@@ -4973,15 +5173,24 @@ async function recordDIAState(jobId, state, company, jobTitle) {
     // Update local map
     _diaMap[jobId] = { current: state, timeline: d.timeline ?? [] };
 
-    // Re-render modal + update row badge
+    // Re-render modal with new state (shows fresh contextual fields)
     renderDIAContent(jobId, company, jobTitle, state, d.timeline ?? []);
 
-    // Refresh visible badge in table without full reload
-    const row = document.querySelector(`tr[data-job-id="${CSS.escape(jobId)}"]`);
-    if (row) {
-      const outcomeTd = row.cells[7]; // 0-date 1-company 2-title 3-platform 4-modality 5-score 6-ds 7-outcome
+    // Refresh visible badge + yellow highlight in table row (no full reload)
+    const trEl = document.querySelector(`tr[data-job-id="${CSS.escape(jobId)}"]`);
+    if (trEl) {
+      const outcomeTd = trEl.cells[7]; // 0-date 1-company 2-title 3-platform 4-modality 5-score 6-ds 7-outcome
       if (outcomeTd) outcomeTd.innerHTML = outcomeBadge(jobId);
+      // Toggle active-process yellow highlight
+      if (DIA_ACTIVE_STATES.has(state)) {
+        trEl.classList.add('dia-active-row');
+      } else {
+        trEl.classList.remove('dia-active-row');
+      }
     }
+    // Keep agenda in sync if it was already loaded
+    if (schedule) refreshAgendaBadge();
+    if ($('agenda-content') && !$('agenda-content').querySelector('.spinner')) loadAgenda(true);
   } catch (e) {
     alert('API offline — tente novamente');
   } finally {
@@ -5001,6 +5210,409 @@ async function refreshDIAMap() {
     } catch {}
     await new Promise(res => setTimeout(res, 30)); // throttle
   }
+}
+
+// ── Agenda de Entrevistas ─────────────────────────────────────────────────────
+
+const AGENDA_INTERVIEW_STATES = new Set(['rh_interview','technical_interview','manager_interview','english_test','questionnaire']);
+
+function refreshAgendaBadge() {
+  fetch(`${API}/api/work/agenda`).then(r => r.json()).then(d => {
+    const badge = $('nav-agenda-badge');
+    if (!badge) return;
+    const upcoming = (d.items ?? []).filter(i => i.scheduledAt && new Date(i.scheduledAt) >= new Date());
+    if (upcoming.length) {
+      badge.textContent = upcoming.length;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+  }).catch(() => {});
+}
+
+async function loadAgenda(silent = false) {
+  const el = $('agenda-content');
+  if (!el) return;
+  if (!silent) el.innerHTML = '<div class="empty-state py-8"><span class="spinner"></span></div>';
+  try {
+    const r = await fetch(`${API}/api/work/agenda`);
+    if (!r.ok) { el.innerHTML = '<div class="empty-state py-6 text-red-400">Erro ao carregar agenda.</div>'; return; }
+    const d = await r.json();
+    const items = (d.items ?? []).sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));
+    if (!items.length) {
+      el.innerHTML = `
+        <div class="empty-state py-10">
+          <div style="font-size:32px;margin-bottom:12px;">📅</div>
+          <div style="font-size:14px;color:#6b7280;margin-bottom:6px;">Nenhuma entrevista agendada</div>
+          <div style="font-size:12px;color:#374151;">Abra o <strong style="color:#22d3ee;">D.I.A.</strong> em uma candidatura, preencha a data/hora e registre o estado de entrevista.</div>
+        </div>`;
+      $('nav-agenda-badge').style.display = 'none';
+      return;
+    }
+
+    const now = new Date();
+    const upcoming = items.filter(i => new Date(i.scheduledAt) >= now);
+    const past     = items.filter(i => new Date(i.scheduledAt) < now);
+
+    const badgeEl = $('nav-agenda-badge');
+    if (badgeEl) {
+      if (upcoming.length) { badgeEl.textContent = upcoming.length; badgeEl.style.display = 'inline-block'; }
+      else badgeEl.style.display = 'none';
+    }
+
+    function renderCard(item, isPast) {
+      const dt = new Date(item.scheduledAt);
+      const stateColor = DIA_COLORS[item.outcomeState] ?? '#6b7280';
+      const stateLabel = DIA_LABELS[item.outcomeState] ?? item.outcomeState;
+      const stateIcon  = DIA_STATE_ICONS[item.outcomeState] ?? '•';
+      const dateStr    = dt.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+      const timeStr    = dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      const isToday    = dt.toDateString() === now.toDateString();
+      const isTomorrow = dt.toDateString() === new Date(now.getTime()+86400000).toDateString();
+      const dayLabel   = isToday ? '🔴 Hoje' : isTomorrow ? '🟡 Amanhã' : '';
+      const opacity    = isPast ? 'opacity:.55;' : '';
+      return `
+        <div style="${opacity}display:flex;align-items:flex-start;gap:14px;padding:14px 16px;border-radius:12px;background:${isPast ? 'rgba(17,24,39,.4)' : 'rgba(251,191,36,.06)'};border:1px solid ${isPast ? '#1f2937' : 'rgba(251,191,36,.2)'};margin-bottom:10px;cursor:pointer;"
+             onclick="navTo('sec-table');setTimeout(()=>openDIA('${esc(item.jobId)}','${esc(item.company)}','${esc(item.jobTitle)}'),300)">
+          <div style="min-width:52px;text-align:center;padding:8px 0;">
+            <div style="font-size:22px;line-height:1;">${stateIcon}</div>
+            <div style="font-size:9px;color:${stateColor};font-weight:700;margin-top:4px;text-transform:uppercase;">${stateLabel}</div>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+              <span style="font-size:13px;font-weight:700;color:#fff;">${esc(item.company)}</span>
+              ${dayLabel ? `<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;background:${isToday ? 'rgba(239,68,68,.15)' : 'rgba(251,191,36,.15)'};color:${isToday ? '#f87171' : '#fbbf24'};">${dayLabel}</span>` : ''}
+            </div>
+            <div style="font-size:11px;color:#9ca3af;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(item.jobTitle)}</div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:12px;color:${isPast ? '#6b7280' : '#fbbf24'};font-weight:600;">📅 ${dateStr}</span>
+              <span style="font-size:12px;color:${isPast ? '#6b7280' : '#e5e7eb'};font-weight:700;">⏰ ${timeStr}</span>
+            </div>
+            ${item.notes ? `<div style="font-size:11px;color:#6b7280;margin-top:5px;white-space:pre-wrap;">${esc(item.notes)}</div>` : ''}
+          </div>
+          <div style="font-size:10px;color:#374151;flex-shrink:0;padding-top:2px;">Abrir →</div>
+        </div>`;
+    }
+
+    let html = '';
+    if (upcoming.length) {
+      html += `<div style="font-size:11px;color:#fbbf24;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">🔔 Próximas (${upcoming.length})</div>`;
+      html += upcoming.map(i => renderCard(i, false)).join('');
+    }
+    if (past.length) {
+      html += `<div style="font-size:11px;color:#4b5563;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:${upcoming.length ? '20px' : '0'} 0 10px;">Passadas (${past.length})</div>`;
+      html += past.map(i => renderCard(i, true)).join('');
+    }
+    el.innerHTML = html;
+  } catch {
+    el.innerHTML = '<div class="empty-state py-6 text-red-400">API offline.</div>';
+  }
+}
+
+// ── Pipeline CRM ─────────────────────────────────────────────────────────────
+
+let _pipelineData = [];
+let _editingPipId = null;
+
+const PIP_STATUS_LABEL = {
+  initial_contact:               '💬 Contato Inicial',
+  interview_scheduled:           '📅 Entrevista Agendada',
+  rh_interview:                  '🤝 Entrev. RH',
+  technical_interview_completed: '💻 Tec. Concluída',
+  culture_fit_completed:         '🎭 Culture Fit OK',
+  awaiting_feedback:             '⏳ Aguard. Feedback',
+  offer_received:                '🎁 Oferta Recebida',
+  hired:                         '🎉 Contratado',
+  rejected:                      '❌ Recusado',
+};
+const PIP_STATUS_COLOR = {
+  initial_contact:'#6b7280', interview_scheduled:'#fbbf24',
+  rh_interview:'#22d3ee', technical_interview_completed:'#a78bfa',
+  culture_fit_completed:'#60a5fa', awaiting_feedback:'#f97316',
+  offer_received:'#22c55e', hired:'#22c55e', rejected:'#ef4444',
+};
+const PIP_PRIORITY_COLOR = { P1:'#ef4444', P2:'#f97316', P3:'#fbbf24', P4:'#60a5fa', P5:'#6b7280' };
+
+function pipStatusBadge(status) {
+  const label = PIP_STATUS_LABEL[status] ?? status;
+  const col   = PIP_STATUS_COLOR[status] ?? '#6b7280';
+  return `<span style="font-size:11px;font-weight:700;color:${col};background:${col}18;padding:2px 8px;border-radius:20px;">${label}</span>`;
+}
+
+async function loadPipeline(silent = false) {
+  if (!silent) {
+    $('pipeline-cards').innerHTML = '<div class="empty-state py-8"><span class="spinner"></span></div>';
+    $('pipeline-stats').innerHTML = '';
+    $('pipeline-timeline').innerHTML = '';
+  }
+  try {
+    const r = await fetch(`${API}/api/work/pipeline`);
+    const d = await r.json();
+    _pipelineData = d.opps ?? [];
+    renderPipelineStats();
+    renderPipelineTimeline();
+    renderPipelineCards();
+    // Update nav badge
+    const active = _pipelineData.filter(o => !['hired','rejected'].includes(o.status));
+    const nbadge = $('nav-pipeline-badge');
+    if (nbadge) { nbadge.textContent = active.length; nbadge.style.display = active.length ? 'inline-block' : 'none'; }
+    // Refresh home widgets
+    renderHomePipelineWidgets();
+  } catch {
+    $('pipeline-cards').innerHTML = '<div class="empty-state py-6 text-red-400">API offline.</div>';
+  }
+}
+
+function renderPipelineStats() {
+  const el = $('pipeline-stats');
+  if (!el) return;
+  const active      = _pipelineData.filter(o => !['hired','rejected'].includes(String(o.status)));
+  const interviews  = _pipelineData.filter(o => o.interview_date && new Date(String(o.interview_date)) >= new Date());
+  const waiting     = _pipelineData.filter(o => ['awaiting_feedback','culture_fit_completed','technical_interview_completed'].includes(String(o.status)));
+  const maxSalary   = Math.max(0, ..._pipelineData.filter(o => o.salary_expectation).map(o => Number(o.salary_expectation)));
+  const stats = [
+    { label:'Processos Ativos',    val: active.length,     color:'#fbbf24', icon:'🎯' },
+    { label:'Próximas Entrev.',    val: interviews.length,  color:'#22d3ee', icon:'📅' },
+    { label:'Aguard. Feedback',    val: waiting.length,     color:'#f97316', icon:'⏳' },
+    { label:'Maior Pretensão',     val: maxSalary ? `R$${(maxSalary/1000).toFixed(0)}k` : '—', color:'#22c55e', icon:'💰' },
+  ];
+  el.innerHTML = stats.map(s => `
+    <div class="glass rounded-xl p-3 text-center" style="border:1px solid ${s.color}22;">
+      <div style="font-size:18px;margin-bottom:4px;">${s.icon}</div>
+      <div style="font-size:20px;font-weight:800;color:${s.color};font-family:'JetBrains Mono',monospace;">${s.val}</div>
+      <div style="font-size:10px;color:#6b7280;margin-top:2px;">${s.label}</div>
+    </div>`).join('');
+}
+
+function renderPipelineTimeline() {
+  const el = $('pipeline-timeline');
+  if (!el) return;
+  const withDate = _pipelineData.filter(o => o.interview_date).sort((a, b) =>
+    new Date(String(a.interview_date)).getTime() - new Date(String(b.interview_date)).getTime());
+  if (!withDate.length) { el.innerHTML = ''; return; }
+  const now = new Date();
+  el.innerHTML = `
+    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">📅 Timeline de Entrevistas</div>
+    <div style="position:relative;display:flex;flex-wrap:wrap;gap:6px;padding-left:4px;">
+      ${withDate.map(o => {
+        const dt    = new Date(String(o.interview_date));
+        const past  = dt < now;
+        const today = dt.toDateString() === now.toDateString();
+        const col   = today ? '#fbbf24' : past ? '#374151' : PIP_PRIORITY_COLOR[String(o.priority)] ?? '#6b7280';
+        const dayFmt = dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
+        const timeFmt = dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+        return `<div onclick="navTo('sec-pipeline')" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;padding:8px 12px;border-radius:12px;background:${col}18;border:2px solid ${col}${today?'':'44'};min-width:100px;opacity:${past && !today ? '.5' : '1'};">
+          <div style="font-size:10px;color:${col};font-weight:800;text-transform:uppercase;">${today ? '🔴 HOJE' : past ? 'Concluída' : ''}</div>
+          <div style="font-size:12px;font-weight:700;color:#fff;margin:2px 0;">${esc(String(o.company))}</div>
+          <div style="font-size:10px;color:#9ca3af;">${dayFmt} · ${timeFmt}</div>
+          <div style="font-size:9px;color:${col};margin-top:3px;font-weight:700;">${String(o.priority)}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+function renderPipelineCards() {
+  const el = $('pipeline-cards');
+  if (!el) return;
+  if (!_pipelineData.length) {
+    el.innerHTML = '<div class="empty-state py-8">Nenhuma oportunidade cadastrada</div>';
+    return;
+  }
+  el.innerHTML = _pipelineData.map(o => {
+    const col      = PIP_PRIORITY_COLOR[String(o.priority)] ?? '#6b7280';
+    const sCurrent = String(o.status);
+    const topics   = Array.isArray(o.preparation_topics) ? o.preparation_topics : [];
+    const interviewDt = o.interview_date ? new Date(String(o.interview_date)) : null;
+    const interviewStr = interviewDt ? `📅 ${interviewDt.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'})} ${interviewDt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}` : '';
+    return `
+    <div style="border-left:4px solid ${col};border-radius:0 14px 14px 0;background:rgba(17,24,39,.7);border-top:1px solid rgba(255,255,255,.06);border-right:1px solid rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.06);padding:16px 18px;">
+      <!-- Top row -->
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+            <span style="font-size:11px;font-weight:800;color:${col};background:${col}22;padding:1px 7px;border-radius:20px;">${esc(String(o.priority))}</span>
+            ${pipStatusBadge(sCurrent)}
+            ${interviewStr ? `<span style="font-size:11px;color:#fbbf24;font-weight:600;">${interviewStr}</span>` : ''}
+          </div>
+          <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:2px;">${esc(String(o.company))}</div>
+          <div style="font-size:12px;color:#9ca3af;">${esc(String(o.position))}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button onclick="editPipelineOpp('${esc(String(o.id))}')" class="btn btn-ghost text-xs px-2 py-1">✏️ Editar</button>
+          <button onclick="deletePipelineOpp('${esc(String(o.id))}','${esc(String(o.company))}')" class="btn btn-ghost text-xs px-2 py-1" style="color:#ef4444;">✕</button>
+        </div>
+      </div>
+
+      <!-- Details grid -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;margin-bottom:10px;font-size:11px;color:#9ca3af;">
+        ${o.recruiter_name ? `<div>👤 <b style="color:#e5e7eb;">${esc(String(o.recruiter_name))}</b>${o.recruiter_role ? `<br><span style="color:#6b7280;font-size:10px;">${esc(String(o.recruiter_role))}</span>` : ''}</div>` : ''}
+        ${o.salary_expectation ? `<div>💰 <b style="color:#22c55e;">R$${Number(o.salary_expectation).toLocaleString('pt-BR')}</b> <span style="color:#4b5563;">${o.contract_type ?? ''}</span></div>` : ''}
+        ${o.offer_details ? `<div style="grid-column:1/-1;">🎁 ${esc(String(o.offer_details))}</div>` : ''}
+        ${o.next_action ? `<div style="grid-column:1/-1;">⚡ <b style="color:#fbbf24;">Próx. Ação:</b> ${esc(String(o.next_action))}</div>` : ''}
+        ${o.notes ? `<div style="grid-column:1/-1;color:#6b7280;">${esc(String(o.notes))}</div>` : ''}
+      </div>
+
+      <!-- Probability bar -->
+      <div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#4b5563;margin-bottom:3px;">
+          <span>Probabilidade</span><span style="color:${col};font-weight:700;">${o.probability ?? 50}%</span>
+        </div>
+        <div style="height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;">
+          <div style="height:100%;width:${o.probability ?? 50}%;background:${col};border-radius:2px;transition:width .5s;"></div>
+        </div>
+      </div>
+
+      <!-- Preparation Topics -->
+      ${topics.length ? `
+      <div>
+        <div style="font-size:10px;color:#4b5563;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em;">Tópicos de Preparação</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;">
+          ${topics.map(t => `<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.2);color:#c4b5fd;">${esc(String(t))}</span>`).join('')}
+        </div>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// Home page pipeline widget
+async function renderHomePipelineWidgets() {
+  const kpiEl = $('home-pipeline-kpis');
+  const intEl = $('home-upcoming-interviews');
+  if (!kpiEl || !intEl) return;
+
+  const data = _pipelineData.length ? _pipelineData : await fetch(`${API}/api/work/pipeline`).then(r => r.json()).then(d => (_pipelineData = d.opps ?? [])).catch(() => []);
+
+  if (!_pipelineData.length) {
+    kpiEl.innerHTML = '<div style="font-size:11px;color:#4b5563;">Carregue o Pipeline →</div>';
+    intEl.innerHTML = '<div style="font-size:11px;color:#4b5563;">—</div>';
+    return;
+  }
+
+  const active     = _pipelineData.filter(o => !['hired','rejected'].includes(String(o.status)));
+  const interviews = _pipelineData.filter(o => o.interview_date && new Date(String(o.interview_date)) >= new Date());
+  const waiting    = _pipelineData.filter(o => ['awaiting_feedback','culture_fit_completed','technical_interview_completed'].includes(String(o.status)));
+
+  kpiEl.innerHTML = [
+    { icon:'🎯', val: active.length,     label:'Ativos',         col:'#fbbf24' },
+    { icon:'📅', val: interviews.length, label:'Próx. Entrev.',  col:'#22d3ee' },
+    { icon:'⏳', val: waiting.length,    label:'Aguard. Resp.',  col:'#f97316' },
+    { icon:'💰', val: _pipelineData.filter(o => o.salary_expectation).length ? `R$${(Math.max(..._pipelineData.filter(o=>o.salary_expectation).map(o=>Number(o.salary_expectation)))/1000).toFixed(0)}k` : '—', label:'Maior Pret.', col:'#22c55e' },
+  ].map(s => `<div class="glass rounded-xl p-2 text-center"><div style="font-size:15px;">${s.icon}</div><div style="font-size:16px;font-weight:800;color:${s.col};font-family:'JetBrains Mono',monospace;">${s.val}</div><div style="font-size:9px;color:#6b7280;">${s.label}</div></div>`).join('');
+
+  const upcoming = _pipelineData
+    .filter(o => o.interview_date && new Date(String(o.interview_date)) >= new Date())
+    .sort((a,b) => new Date(String(a.interview_date)).getTime() - new Date(String(b.interview_date)).getTime());
+
+  if (!upcoming.length) {
+    intEl.innerHTML = '<div style="font-size:11px;color:#4b5563;">Nenhuma entrevista agendada</div>';
+    return;
+  }
+  const now = new Date();
+  intEl.innerHTML = upcoming.map(o => {
+    const dt   = new Date(String(o.interview_date));
+    const col  = PIP_PRIORITY_COLOR[String(o.priority)] ?? '#fbbf24';
+    const isToday = dt.toDateString() === now.toDateString();
+    return `<div onclick="navTo('sec-pipeline')" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:${col}0a;border:1px solid ${col}33;">
+      <div style="flex-shrink:0;font-size:9px;font-weight:800;color:${col};background:${col}22;padding:2px 6px;border-radius:4px;">${esc(String(o.priority))}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(String(o.company))}</div>
+        <div style="font-size:10px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(String(o.position))}</div>
+      </div>
+      <div style="flex-shrink:0;text-align:right;">
+        ${isToday ? '<div style="font-size:10px;font-weight:800;color:#ef4444;">🔴 HOJE</div>' : ''}
+        <div style="font-size:11px;color:${col};font-weight:700;">${dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}</div>
+        <div style="font-size:10px;color:#9ca3af;">${dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Pipeline CRUD UI
+let _editingPipOpp = null;
+
+function openAddPipeline() {
+  _editingPipOpp = null;
+  ['pf-company','pf-position','pf-recruiter','pf-recruiter-role','pf-invite-email','pf-offer','pf-topics','pf-next-action','pf-notes'].forEach(id => { if ($(id)) $(id).value = ''; });
+  if ($('pf-priority'))  $('pf-priority').value = 'P3';
+  if ($('pf-status'))    $('pf-status').value = 'initial_contact';
+  if ($('pf-probability')) $('pf-probability').value = '50';
+  if ($('pf-interview-date')) $('pf-interview-date').value = '';
+  if ($('pf-contract'))  $('pf-contract').value = '';
+  if ($('pf-salary'))    $('pf-salary').value = '';
+  $('pipeline-modal').style.display = 'block';
+}
+
+function editPipelineOpp(id) {
+  const o = _pipelineData.find(x => String(x.id) === id);
+  if (!o) return;
+  _editingPipOpp = id;
+  if ($('pf-company'))       $('pf-company').value       = String(o.company ?? '');
+  if ($('pf-position'))      $('pf-position').value      = String(o.position ?? '');
+  if ($('pf-priority'))      $('pf-priority').value      = String(o.priority ?? 'P3');
+  if ($('pf-status'))        $('pf-status').value        = String(o.status ?? 'initial_contact');
+  if ($('pf-probability'))   $('pf-probability').value   = String(o.probability ?? 50);
+  if ($('pf-recruiter'))     $('pf-recruiter').value     = String(o.recruiter_name ?? '');
+  if ($('pf-recruiter-role'))$('pf-recruiter-role').value= String(o.recruiter_role ?? '');
+  if ($('pf-invite-email'))  $('pf-invite-email').value  = String(o.invite_email ?? '');
+  if ($('pf-interview-date'))$('pf-interview-date').value= o.interview_date ? String(o.interview_date).slice(0,16) : '';
+  if ($('pf-contract'))      $('pf-contract').value      = String(o.contract_type ?? '');
+  if ($('pf-salary'))        $('pf-salary').value        = o.salary_expectation ? String(o.salary_expectation) : '';
+  if ($('pf-offer'))         $('pf-offer').value         = String(o.offer_details ?? '');
+  if ($('pf-topics'))        $('pf-topics').value        = Array.isArray(o.preparation_topics) ? o.preparation_topics.join(', ') : '';
+  if ($('pf-next-action'))   $('pf-next-action').value   = String(o.next_action ?? '');
+  if ($('pf-notes'))         $('pf-notes').value         = String(o.notes ?? '');
+  $('pipeline-modal').style.display = 'block';
+}
+
+function closePipelineModal() { $('pipeline-modal').style.display = 'none'; _editingPipOpp = null; }
+
+async function savePipelineOpp() {
+  const company  = $('pf-company')?.value.trim();
+  const position = $('pf-position')?.value.trim();
+  if (!company || !position) { alert('Empresa e Cargo são obrigatórios'); return; }
+  const topics = ($('pf-topics')?.value ?? '').split(',').map(t => t.trim()).filter(Boolean);
+  const body = {
+    company, position,
+    priority:          $('pf-priority')?.value,
+    status:            $('pf-status')?.value,
+    probability:       parseInt($('pf-probability')?.value ?? '50'),
+    recruiterName:     $('pf-recruiter')?.value.trim(),
+    recruiterRole:     $('pf-recruiter-role')?.value.trim(),
+    inviteEmail:       $('pf-invite-email')?.value.trim(),
+    interviewDate:     $('pf-interview-date')?.value || null,
+    contractType:      $('pf-contract')?.value || null,
+    salaryExpectation: parseInt($('pf-salary')?.value ?? '0') || null,
+    offerDetails:      $('pf-offer')?.value.trim() || null,
+    preparationTopics: topics,
+    nextAction:        $('pf-next-action')?.value.trim(),
+    notes:             $('pf-notes')?.value.trim(),
+  };
+  try {
+    if (_editingPipOpp) {
+      await fetch(`${API}/api/work/pipeline/${encodeURIComponent(_editingPipOpp)}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: body.status, priority: body.priority, probability: body.probability,
+          recruiter_name: body.recruiterName, recruiter_role: body.recruiterRole,
+          invite_email: body.inviteEmail, interview_date: body.interviewDate,
+          contract_type: body.contractType, salary_expectation: body.salaryExpectation,
+          offer_details: body.offerDetails, preparation_topics: body.preparationTopics,
+          next_action: body.nextAction, notes: body.notes }),
+      });
+    } else {
+      await fetch(`${API}/api/work/pipeline`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    }
+    closePipelineModal();
+    await loadPipeline();
+    refreshAgendaBadge();
+  } catch { alert('Erro — API offline?'); }
+}
+
+async function deletePipelineOpp(id, company) {
+  if (!confirm(`Remover "${company}" do pipeline?`)) return;
+  try {
+    await fetch(`${API}/api/work/pipeline/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    await loadPipeline();
+  } catch { alert('Erro — API offline?'); }
 }
 
 // ── Enhanced Analytics Section ────────────────────────────────────────────────

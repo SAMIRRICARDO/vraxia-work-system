@@ -401,14 +401,21 @@ export class LinkedInApplyEngine {
       {
         label: 'anchor tabindex text scan',
         fn: async () => {
+          // Extract the target job ID from the current page URL to filter out
+          // Similar-Jobs sidebar anchors that have skipRedirect with other job IDs.
+          const pageUrl = this.page.url();
+          const targetJobId = pageUrl.match(/\/jobs\/view\/(\d+)/)?.[1] ?? '';
           const anchors = await this.page.locator('a[tabindex]:visible').all();
           for (const a of anchors) {
             const txt = (await a.innerText().catch(() => '')).trim();
             if (!/Candidatura simplificada|Easy Apply/i.test(txt)) continue;
-            // Skip sidebar/similar-jobs anchors — they carry skipRedirect in their href
-            // and belong to other jobs, not the current one.
             const href = await a.getAttribute('href').catch(() => '');
-            if (href && href.includes('skipRedirect')) continue;
+            // Skip sidebar/similar-jobs anchors: they carry skipRedirect with a
+            // currentJobId that does NOT match the target job.
+            if (href && href.includes('skipRedirect')) {
+              const hrefJobId = href.match(/currentJobId=(\d+)/)?.[1] ?? '';
+              if (!targetJobId || hrefJobId !== targetJobId) continue;
+            }
             return a;
           }
           return null;
