@@ -1,6 +1,6 @@
 // packages/work/src/engine/gupy.ts
 // Gupy é a plataforma de RH dominante no Brasil — usada por >3000 empresas
-// Busca via API HTTP (job-search.gupy.io) — evita Cloudflare/bot-detection
+// API real: employability-portal.gupy.io/api/v1/jobs (descoberta via bundle Next.js 2026)
 // Playwright só para o fluxo de apply
 
 import { Page } from 'playwright';
@@ -8,6 +8,9 @@ import { Job, QuestionnaireQuestion } from '../types/index.js';
 
 const delay = (min: number, max: number) =>
   new Promise(r => setTimeout(r, Math.floor(Math.random() * (max - min + 1)) + min));
+
+// API base real do Gupy (extraída do bundle Next.js do portal.gupy.io em 2026)
+const GUPY_API_BASE = 'https://employability-portal.gupy.io';
 
 // Headers comuns para as chamadas à API Gupy
 const GUPY_API_HEADERS = {
@@ -35,6 +38,8 @@ const GUPY_COMPANY_SLUGS: Record<string, string> = {
   'creditas': 'creditas',
   'loft': 'loft',
   'dock': 'dock',
+  'hapvida': 'hapvida',
+  'hapvida notredame intermédica': 'hapvida',
 };
 
 export interface GupySearchConfig {
@@ -67,10 +72,10 @@ export class GupySearchEngine {
     const seen = new Set<string>();
 
     for (const keyword of config.keywords) {
-      // API pública do Gupy: job-search.gupy.io
-      const params = new URLSearchParams({ name: keyword, limit: '20', offset: '0' });
+      // API real do Gupy (employability-portal.gupy.io, descoberta via bundle Next.js 2026)
+      const params = new URLSearchParams({ jobName: keyword, limit: '20', offset: '0' });
       if (config.locations?.[0]) params.set('state', 'SP');
-      const url = `https://job-search.gupy.io/jobs?${params.toString()}`;
+      const url = `${GUPY_API_BASE}/api/v1/jobs?${params.toString()}`;
       console.log(`[Gupy API] GET ${url}`);
 
       try {
@@ -82,7 +87,7 @@ export class GupySearchEngine {
         }
 
         const data = await resp.json() as any;
-        // A API pode retornar { data: [...] } ou { jobs: [...] } ou array direto
+        // Resposta: { data: [...], total: N }
         const items: any[] = Array.isArray(data)
           ? data
           : (data.data ?? data.jobs ?? data.results ?? []);
@@ -90,16 +95,18 @@ export class GupySearchEngine {
         console.log(`[Gupy API] ${items.length} vagas para "${keyword}"`);
 
         for (const item of items) {
-          const id = String(item.id ?? item.jobId ?? '');
+          const id = String(item.id ?? '');
           if (!id || seen.has(id)) continue;
           seen.add(id);
 
-          const slug = item.company?.urlName ?? item.companySlug ?? item.company?.name ?? '';
-          const appUrl: string =
-            item.applicationUrl ??
-            (slug ? `https://${slug}.gupy.io/jobs/${id}` : `https://portal.gupy.io/job/${id}`);
+          // Campo jobUrl é a URL de candidatura; careerPageUrl é o board da empresa
+          const appUrl: string = item.jobUrl ?? item.applicationUrl ??
+            `https://portal.gupy.io/job/${id}`;
+          const slug = item.careerPageUrl
+            ? String(item.careerPageUrl).replace(/^https?:\/\/([^.]+)\.gupy\.io.*/, '$1')
+            : '';
 
-          const titleText = (item.name ?? item.title ?? '').toLowerCase();
+          const titleText = (item.name ?? '').toLowerCase();
           const hasMatch = config.keywords.some(k => titleText.includes(k.toLowerCase()));
           if (!hasMatch) continue;
 
@@ -107,8 +114,8 @@ export class GupySearchEngine {
             id: `gupy_${id}`,
             gupyJobId: id,
             companySlug: slug,
-            title: item.name ?? item.title ?? keyword,
-            company: item.company?.name ?? slug,
+            title: item.name ?? keyword,
+            company: item.careerPageName ?? slug,
             location: [item.city, item.state].filter(Boolean).join(', '),
             linkedinUrl: appUrl,
             applicationUrl: appUrl,
@@ -142,9 +149,14 @@ export class GupySearchEngine {
     const slugs = this.resolveCompanySlugs(config.companyWatchlist ?? []);
 
     for (const slug of slugs) {
-      // Tenta descobrir companyId via slug usando a API de companies
-      const params = new URLSearchParams({ name: config.keywords[0] ?? 'desenvolvedor', limit: '20', offset: '0', companyName: slug });
-      const url = `https://job-search.gupy.io/jobs?${params.toString()}`;
+      // Busca por nome da empresa na API real do Gupy
+      const params = new URLSearchParams({
+        jobName: config.keywords[0] ?? 'desenvolvedor',
+        limit: '20',
+        offset: '0',
+        careerPageName: slug,
+      });
+      const url = `${GUPY_API_BASE}/api/v1/jobs?${params.toString()}`;
       console.log(`[Gupy API] Company "${slug}": ${url}`);
 
       try {
@@ -157,13 +169,13 @@ export class GupySearchEngine {
         for (const item of items) {
           const id = String(item.id ?? '');
           if (!id) continue;
-          const appUrl: string = item.applicationUrl ?? `https://portal.gupy.io/job/${id}`;
+          const appUrl: string = item.jobUrl ?? item.applicationUrl ?? `https://portal.gupy.io/job/${id}`;
           jobs.push({
             id: `gupy_${id}`,
             gupyJobId: id,
             companySlug: slug,
-            title: item.name ?? item.title ?? 'Vaga',
-            company: item.company?.name ?? slug,
+            title: item.name ?? 'Vaga',
+            company: item.careerPageName ?? slug,
             location: [item.city, item.state].filter(Boolean).join(', '),
             linkedinUrl: appUrl,
             applicationUrl: appUrl,

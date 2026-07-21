@@ -167,6 +167,7 @@ const GUPY_CONFIG = {
   companyWatchlist: [
     'nubank', 'stone', 'vtex', 'ifood', 'creditas',
     'dock', 'loft', 'ambevtech', 'totvs', 'xp-investimentos',
+    'hapvida',
   ],
   useGupyBoard: true,
   locations: ['Sao Paulo'],
