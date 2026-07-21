@@ -405,6 +405,10 @@
     <!-- Header -->
     <div class="relative overflow-hidden border-b border-white/5">
       <div class="obs-grid" style="opacity:.5"></div>
+      <!-- API offline banner — visível no mobile sem abrir sidebar -->
+      <div id="offline-banner" style="display:none;background:rgba(239,68,68,.12);border-bottom:1px solid rgba(239,68,68,.25);padding:6px 16px;font-size:11px;color:#fca5a5;font-family:'JetBrains Mono',monospace;text-align:center;">
+        ⚠️ API offline — dados em tempo real indisponíveis. Servidor local (porta 3001) não responde.
+      </div>
       <div class="relative header-inner px-8 pt-8 pb-6" style="z-index:1">
         <div class="flex items-center gap-3 mb-2">
           <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">
@@ -598,11 +602,9 @@
             </div>
             <div class="flex items-center gap-3">
               <span id="home-recent-updated" class="text-xs text-gray-600 font-mono"></span>
-              <div style="display:inline-flex;align-items:center;gap:1px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:2px 4px;">
-                <span style="font-size:10px;color:#6b7280;padding:0 4px;user-select:none;font-family:'JetBrains Mono',monospace;">Data</span>
-                <button id="btn-home-date-sort-asc" onclick="setHomeDateSort('asc')" title="Mais antigo primeiro" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:22px;height:20px;border-radius:4px;background:transparent;border:none;color:#6b7280;font-size:13px;font-weight:700;outline:none;transition:all .2s;">↑</button>
-                <button id="btn-home-date-sort-desc" onclick="setHomeDateSort('desc')" title="Mais recente primeiro" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:22px;height:20px;border-radius:4px;background:transparent;border:none;color:#60a5fa;font-size:13px;font-weight:700;outline:none;transition:all .2s;">↓</button>
-              </div>
+              <button id="btn-home-date-sort-toggle" onclick="toggleHomeDateSort()" title="Ordenar por data — clique para alternar crescente/decrescente" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.25);color:#60a5fa;font-size:11px;font-weight:700;outline:none;transition:all .2s;font-family:'JetBrains Mono',monospace;">
+                Data <span id="home-date-sort-icon">↓</span>
+              </button>
               <button onclick="loadHome()" class="text-xs text-gray-600 hover:text-gray-400 transition">↻</button>
               <button onclick="navTo('sec-table')" class="text-xs text-blue-400 hover:text-blue-300 transition">Ver todas →</button>
             </div>
@@ -760,11 +762,9 @@
           <option value="30d">Últimos 30 dias</option>
         </select>
         <input id="f-search" type="text" class="filter-input" placeholder="Buscar empresa ou cargo…" oninput="debounceSearch()" />
-        <div style="display:inline-flex;align-items:center;gap:1px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:3px 5px;">
-          <span style="font-size:12px;color:#6b7280;padding:0 5px;user-select:none;">Data</span>
-          <button id="btn-date-sort-asc" onclick="setDateSort('asc')" title="Crescente — mais antigo primeiro" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:26px;height:24px;border-radius:6px;background:transparent;border:none;color:#6b7280;font-size:14px;font-weight:700;outline:none;transition:all .2s;">↑</button>
-          <button id="btn-date-sort-desc" onclick="setDateSort('desc')" title="Decrescente — mais recente primeiro" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:26px;height:24px;border-radius:6px;background:transparent;border:none;color:#6b7280;font-size:14px;font-weight:700;outline:none;transition:all .2s;">↓</button>
-        </div>
+        <button id="btn-date-sort-toggle" onclick="toggleDateSort()" title="Ordenar por data — clique para alternar: ↓ mais recente · ↑ mais antigo · ↕ sem ordem" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;height:38px;padding:0 12px;border-radius:10px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1);color:#6b7280;font-size:12px;font-weight:600;outline:none;transition:all .2s;font-family:'JetBrains Mono',monospace;">
+          Data <span id="date-sort-icon" style="font-size:13px;font-weight:700;transition:color .2s;">↕</span>
+        </button>
       </div>
 
       <!-- Table -->
@@ -773,12 +773,8 @@
           <table class="tbl">
             <thead>
               <tr>
-                <th style="white-space:nowrap;">
-                  <span style="display:inline-flex;align-items:center;gap:3px;">
-                    Data/Hora
-                    <button onclick="setDateSort('asc')" id="btn-th-date-asc" title="Crescente — mais antigo primeiro" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:20px;height:18px;border-radius:4px;background:transparent;border:none;color:#6b7280;font-size:12px;font-weight:700;outline:none;transition:all .2s;">↑</button>
-                    <button onclick="setDateSort('desc')" id="btn-th-date-desc" title="Decrescente — mais recente primeiro" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:20px;height:18px;border-radius:4px;background:transparent;border:none;color:#6b7280;font-size:12px;font-weight:700;outline:none;transition:all .2s;">↓</button>
-                  </span>
+                <th onclick="toggleDateSort()" style="cursor:pointer;user-select:none;white-space:nowrap;">
+                  Data/Hora <span id="btn-th-date-icon" style="font-size:11px;opacity:.6;transition:all .2s;">↕</span>
                 </th>
                 <th>Empresa</th>
                 <th>Cargo</th>
@@ -2208,10 +2204,14 @@ async function refreshStats() {
     $('live-applied').textContent = d.totalApplied ?? '—';
     $('live-cost').textContent    = '$' + (d.estimatedCostUsd ?? 0).toFixed(4);
     $('last-updated').textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
+    const ob = $('offline-banner'); if (ob) ob.style.display = 'none';
   } catch {
-    $('kpi-scanned').textContent = 'offline';
+    $('kpi-scanned').textContent = '—';
     $('status-label').textContent = 'API Offline';
     $('status-dot').style.background = '#ef4444';
+    $('last-updated').textContent = '⚠️ API offline — ' + new Date().toLocaleTimeString('pt-BR');
+    $('last-updated').style.color = '#fca5a5';
+    const ob = $('offline-banner'); if (ob) ob.style.display = 'block';
   }
 }
 
@@ -2254,28 +2254,19 @@ function applyAppSort() {
   const dateIcon = $('date-sort-icon');
   if (dateIcon) {
     dateIcon.textContent = _dateSortDir === 'desc' ? '↓' : _dateSortDir === 'asc' ? '↑' : '↕';
-    dateIcon.style.opacity = _dateSortDir ? '1' : '.6';
-    dateIcon.style.color = _dateSortDir ? '#60a5fa' : '';
+    dateIcon.style.color = _dateSortDir ? '#60a5fa' : '#6b7280';
   }
-  const btnAsc  = $('btn-date-sort-asc');
-  const btnDesc = $('btn-date-sort-desc');
-  if (btnAsc) {
-    btnAsc.style.background = _dateSortDir === 'asc'  ? 'rgba(96,165,250,.18)' : 'transparent';
-    btnAsc.style.color      = _dateSortDir === 'asc'  ? '#60a5fa' : '#6b7280';
+  const btnToggle = $('btn-date-sort-toggle');
+  if (btnToggle) {
+    btnToggle.style.background   = _dateSortDir ? 'rgba(96,165,250,.12)' : 'rgba(0,0,0,.4)';
+    btnToggle.style.borderColor  = _dateSortDir ? 'rgba(96,165,250,.3)'  : 'rgba(255,255,255,.1)';
+    btnToggle.style.color        = _dateSortDir ? '#93c5fd' : '#6b7280';
   }
-  if (btnDesc) {
-    btnDesc.style.background = _dateSortDir === 'desc' ? 'rgba(96,165,250,.18)' : 'transparent';
-    btnDesc.style.color      = _dateSortDir === 'desc' ? '#60a5fa' : '#6b7280';
-  }
-  const btnThAsc  = $('btn-th-date-asc');
-  const btnThDesc = $('btn-th-date-desc');
-  if (btnThAsc) {
-    btnThAsc.style.background = _dateSortDir === 'asc'  ? 'rgba(96,165,250,.18)' : 'transparent';
-    btnThAsc.style.color      = _dateSortDir === 'asc'  ? '#60a5fa' : '#6b7280';
-  }
-  if (btnThDesc) {
-    btnThDesc.style.background = _dateSortDir === 'desc' ? 'rgba(96,165,250,.18)' : 'transparent';
-    btnThDesc.style.color      = _dateSortDir === 'desc' ? '#60a5fa' : '#6b7280';
+  const btnThIcon = $('btn-th-date-icon');
+  if (btnThIcon) {
+    btnThIcon.textContent  = _dateSortDir === 'desc' ? '↓' : _dateSortDir === 'asc' ? '↑' : '↕';
+    btnThIcon.style.opacity = _dateSortDir ? '1' : '.5';
+    btnThIcon.style.color   = _dateSortDir ? '#60a5fa' : '';
   }
 
   const tbody = $('apps-tbody');
