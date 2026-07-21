@@ -363,6 +363,11 @@ export class JobSearchEngine {
     for (const company of config.companyBlacklist) {
       if (companyLower.includes(company.toLowerCase())) return true;
     }
+    // whitelist: se definida, rejeita qualquer empresa que não conste na lista
+    if (config.companyWhitelist?.length) {
+      const match = config.companyWhitelist.some(w => companyLower.includes(w.toLowerCase()));
+      if (!match) return true;
+    }
     return false;
   }
 }

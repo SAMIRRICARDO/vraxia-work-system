@@ -40,6 +40,18 @@ const GUPY_COMPANY_SLUGS: Record<string, string> = {
   'dock': 'dock',
   'hapvida': 'hapvida',
   'hapvida notredame intermédica': 'hapvida',
+  // Top empresas Brasil
+  'vivo': 'vivo',
+  'telefônica': 'vivo',
+  'vale': 'vale',
+  'accenture': 'accenture',
+  'ibm': 'ibm-brasil',
+  'banco do brasil': 'banco-do-brasil',
+  'albert einstein': 'albert-einstein',
+  'hospital israelita': 'albert-einstein',
+  'cargill': 'cargill',
+  'honda': 'honda',
+  'senac': 'senac',
 };
 
 export interface GupySearchConfig {

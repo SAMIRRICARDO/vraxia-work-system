@@ -177,12 +177,42 @@ const LINKEDIN_CONFIG_UBER: JobSearchConfig = {
   companyIds: ['1815218'],  // Uber LinkedIn company ID
 };
 
+// 6ª prioridade: Top empresas Brasil (Best Companies / Best WorkPlaces)
+// IDs LinkedIn confirmados: Google=1441, IBM=1009, Accenture=1033, BCG=3463, EY=2784, MercadoLibre=506101
+// Demais filtradas por nome pós-scrape (companyWhitelist)
+const TOP_COMPANIES_WHITELIST = [
+  'itaú', 'itau', 'vale', 'accenture', 'bcg', 'boston consulting',
+  'ibm', 'banco do brasil', 'google', 'vivo', 'telefônica', 'telefonica',
+  'mercado livre', 'mercadolibre', 'ey', 'ernst', 'albert einstein',
+  'sebrae', 'cargill', 'honda', 'senac', 'sesc', 'sírio libanês', 'sirio libanes',
+  'azul', 'prevent senior', 'ac camargo',
+];
+
+const LINKEDIN_CONFIG_TOP_COMPANIES: JobSearchConfig = {
+  keywords: KEYWORDS,
+  locations: ['São Paulo, Brazil', 'Brazil', 'Remote'],
+  experienceLevels: ['MID_SENIOR_LEVEL', 'DIRECTOR'],
+  jobTypes: ['FULL_TIME'],
+  datePosted: 'month',
+  easyApplyOnly: false,
+  remoteOnly: false,
+  companyBlacklist: [],
+  titleBlacklist: TITLE_BLACKLIST,
+  maxApplicationsPerRun: governedApplyLimit,
+  companyIds: ['1441', '1009', '1033', '3463', '2784', '506101'], // Google, IBM, Accenture, BCG, EY, MercadoLibre
+  companyWhitelist: TOP_COMPANIES_WHITELIST,
+};
+
 const GUPY_CONFIG = {
   keywords: KEYWORDS,
   companyWatchlist: [
     'nubank', 'stone', 'vtex', 'ifood', 'creditas',
     'dock', 'loft', 'ambevtech', 'totvs', 'xp-investimentos',
     'hapvida',
+    // Top empresas Brasil que usam Gupy
+    'itau-unibanco', 'mercadolivre', 'vivo', 'vale',
+    'accenture', 'ibm-brasil', 'banco-do-brasil',
+    'albert-einstein', 'cargill', 'honda', 'senac',
   ],
   useGupyBoard: true,
   locations: ['Sao Paulo'],
@@ -685,11 +715,12 @@ async function main() {
     const jobsBR        = await searchEngine.scrapeJobList(LINKEDIN_CONFIG_BRASIL).catch(e => { console.warn('[Hunt] Busca BR falhou:', e); return []; });
     const jobsExternal  = await searchEngine.scrapeJobList(LINKEDIN_CONFIG_EXTERNAL).catch(e => { console.warn('[Hunt] Busca externa falhou:', e); return []; });
     const jobsUber      = await searchEngine.scrapeJobList(LINKEDIN_CONFIG_UBER).catch(e => { console.warn('[Hunt] Busca Uber falhou:', e); return []; });
+    const jobsTop       = await searchEngine.scrapeJobList(LINKEDIN_CONFIG_TOP_COMPANIES).catch(e => { console.warn('[Hunt] Busca Top Companies falhou:', e); return []; });
 
     const seenIds = new Set<string>();
-    const rawLinkedInJobs = [...jobsSPOnsite, ...jobsSP, ...jobsBR, ...jobsExternal, ...jobsUber].filter(j => { if (seenIds.has(j.id)) return false; seenIds.add(j.id); return true; });
+    const rawLinkedInJobs = [...jobsSPOnsite, ...jobsSP, ...jobsBR, ...jobsExternal, ...jobsUber, ...jobsTop].filter(j => { if (seenIds.has(j.id)) return false; seenIds.add(j.id); return true; });
     const jobs = sortNewestFirst(rawLinkedInJobs); // newest-first: < 24h tem 4x mais callback
-    console.log(`${jobs.length} vagas únicas encontradas no LinkedIn (SP onsite/híbrido: ${jobsSPOnsite.length}, SP geral: ${jobsSP.length}, BR/Remoto: ${jobsBR.length}, Externa/ATS: ${jobsExternal.length}, Uber: ${jobsUber.length}) — ordenadas por data.\n`);
+    console.log(`${jobs.length} vagas únicas encontradas no LinkedIn (SP onsite/híbrido: ${jobsSPOnsite.length}, SP geral: ${jobsSP.length}, BR/Remoto: ${jobsBR.length}, Externa/ATS: ${jobsExternal.length}, Uber: ${jobsUber.length}, Top empresas: ${jobsTop.length}) — ordenadas por data.\n`);
 
     for (const job of jobs) {
       if (totalApplied >= maxApply) break;

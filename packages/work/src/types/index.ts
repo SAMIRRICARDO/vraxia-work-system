@@ -66,7 +66,8 @@ export interface JobSearchConfig {
   companyBlacklist: string[];
   titleBlacklist: string[];
   maxApplicationsPerRun: number;
-  companyIds?: string[];  // LinkedIn company IDs para filtro via f_C (ex: Uber = '1815218')
+  companyIds?: string[];       // LinkedIn company IDs para filtro via f_C (ex: Uber = '1815218')
+  companyWhitelist?: string[]; // Filtro pós-scrape: só aceita vagas dessas empresas (match parcial)
 }
 
 // ─── Job ────────────────────────────────────────────────────────────────────
