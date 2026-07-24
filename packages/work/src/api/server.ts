@@ -323,7 +323,7 @@ app.get('/api/work/applications', async (req: Request, res: Response) => {
           const days = period === '7d' ? 7 : 30;
           cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
         }
-        sql += ` AND updated_at >= ?`;
+        sql += ` AND COALESCE(updated_at, applied_at, scanned_at) >= ?`;
         params.push(cutoff);
       }
 
@@ -333,7 +333,7 @@ app.get('/api/work/applications', async (req: Request, res: Response) => {
         params.push(like, like);
       }
 
-      sql += ` ORDER BY updated_at DESC LIMIT 1000`;
+      sql += ` ORDER BY COALESCE(updated_at, applied_at, scanned_at) DESC LIMIT 1000`;
       return dbQuery(db, sql, params);
     });
 
@@ -2239,22 +2239,51 @@ app.post('/api/work/redeploy', (_req: Request, res: Response) => {
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
-const httpServer = createServer(app);
-initRdaWsServer(httpServer);
 
-httpServer.listen(PORT, () => {
-  console.log(`\n  VRAXIA WORK — Dashboard API`);
-  console.log(`  → Dashboard:   http://localhost:${PORT}/work`);
-  console.log(`  → API base:    http://localhost:${PORT}/api/work`);
-  console.log(`  → RDA API:     http://localhost:${PORT}/api/rda`);
-  console.log(`  → RDA Agent:   ws://localhost:${PORT}/rda\n`);
-  if (!fs.existsSync(DASH_DIR)) {
-    console.warn(`  [WARN] Dashboard não encontrado: ${DASH_DIR}`);
-  }
-  if (!fs.existsSync(DB_PATH)) {
-    console.warn(`  [WARN] Banco não encontrado: ${DB_PATH} (execute o hunt primeiro)`);
-  }
-  sendServerStartup()
-    .then(() => console.log('[Telegram] Startup notification sent.'))
-    .catch(err => console.error('[Telegram] Startup notification FAILED:', String(err)));
-});
+function killPortWin(port: number): void {
+  try {
+    const result = spawnSync('cmd', ['/c', `for /f "tokens=5" %a in ('netstat -aon ^| findstr :${port}') do taskkill /F /PID %a`], {
+      stdio: 'ignore', shell: false,
+    });
+    if (result.status === 0) console.log(`[Server] Processo na porta ${port} encerrado.`);
+  } catch { /* ignora */ }
+}
+
+function startServer(retried = false): void {
+  const httpServer = createServer(app);
+  initRdaWsServer(httpServer);
+
+  httpServer.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      if (retried) {
+        console.error(`[Server] Porta ${PORT} ainda ocupada após kill — encerrando.`);
+        process.exit(1);
+      }
+      console.warn(`[Server] Porta ${PORT} ocupada — matando processo anterior e tentando novamente...`);
+      killPortWin(PORT);
+      setTimeout(() => startServer(true), 2_000);
+    } else {
+      console.error('[Server] Erro ao iniciar:', err);
+      process.exit(1);
+    }
+  });
+
+  httpServer.listen(PORT, () => {
+    console.log(`\n  VRAXIA WORK — Dashboard API`);
+    console.log(`  → Dashboard:   http://localhost:${PORT}/work`);
+    console.log(`  → API base:    http://localhost:${PORT}/api/work`);
+    console.log(`  → RDA API:     http://localhost:${PORT}/api/rda`);
+    console.log(`  → RDA Agent:   ws://localhost:${PORT}/rda\n`);
+    if (!fs.existsSync(DASH_DIR)) {
+      console.warn(`  [WARN] Dashboard não encontrado: ${DASH_DIR}`);
+    }
+    if (!fs.existsSync(DB_PATH)) {
+      console.warn(`  [WARN] Banco não encontrado: ${DB_PATH} (execute o hunt primeiro)`);
+    }
+    sendServerStartup()
+      .then(() => console.log('[Telegram] Startup notification sent.'))
+      .catch(err => console.error('[Telegram] Startup notification FAILED:', String(err)));
+  });
+}
+
+startServer();

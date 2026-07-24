@@ -58,9 +58,11 @@ function appendHistory(entry: HistoryEntry): void {
 }
 
 // Guard: impede segunda execução no mesmo dia (Task Scheduler dispara a cada 4h).
-// Conta QUALQUER tentativa — não apenas as bem-sucedidas.
-// Se filtrarmos por exitCode === 0, uma execução com exit 255 (túnel caiu) deixa a
-// porta aberta para o scheduler repetir a sessão no mesmo dia → candidaturas duplicadas.
+// Ignora entradas com crash precoce (< 30s e exitCode !== 0) — esses são falhas de
+// infraestrutura (sem rede, DNS falhando) onde nenhuma candidatura foi feita.
+// Conta entradas bem-sucedidas OU sessões longas (≥ 30s) para evitar duplicatas reais.
+const INFRA_CRASH_THRESHOLD_MS = 30_000;
+
 function ranToday(): boolean {
   try {
     if (!fs.existsSync(HISTORY_PATH)) return false;
@@ -68,7 +70,15 @@ function ranToday(): boolean {
     return fs.readFileSync(HISTORY_PATH, 'utf-8')
       .split('\n')
       .filter(l => l.trim())
-      .some(l => { try { const e = JSON.parse(l); return e.date === today && !e.dryRun; } catch { return false; } });
+      .some(l => {
+        try {
+          const e = JSON.parse(l);
+          if (e.date !== today || e.dryRun) return false;
+          // Crash precoce por erro de infra (sem rede etc) — permite re-tentativa
+          const isInfraCrash = e.exitCode !== 0 && e.durationMs < INFRA_CRASH_THRESHOLD_MS;
+          return !isInfraCrash;
+        } catch { return false; }
+      });
   } catch { return false; }
 }
 

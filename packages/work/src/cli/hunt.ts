@@ -257,19 +257,53 @@ const LINKEDIN_CONFIG_GPTW: JobSearchConfig = {
   ],
 };
 
+const GUPY_KEYWORDS = [
+  ...KEYWORDS,
+  'Desenvolvedor de IA',
+  'Engenheiro de Software',
+  'Desenvolvedor Backend',
+  'Desenvolvedor Node',
+  'Arquiteto de Software',
+  'Tech Lead',
+  'Engenheiro Full Stack',
+  'Desenvolvedor TypeScript',
+];
+
+// Todas as 175 empresas GPTW 2025 priorizadas — slugs Gupy
 const GUPY_CONFIG = {
-  keywords: KEYWORDS,
+  keywords: GUPY_KEYWORDS,
   companyWatchlist: [
-    'nubank', 'stone', 'vtex', 'ifood', 'creditas',
-    'dock', 'loft', 'ambevtech', 'totvs', 'xp-investimentos',
-    'hapvida',
-    // Top empresas Brasil que usam Gupy
-    'itau-unibanco', 'mercadolivre', 'vivo', 'vale',
-    'accenture', 'ibm-brasil', 'banco-do-brasil',
+    // ── GPTW 2025: Grandes Empresas ──────────────────────────────────────
+    'itau-unibanco', 'vivo', 'totvs', 'accenture', 'bosch',
+    'neoenergia', 'localiza', 'sicredi', 'magazine-luiza', 'porto-seguro',
+    'cogna', 'albert-einstein', 'equatorial-energia', 'sao-martinho', 'motiva',
+    // ── GPTW 2025: Médias Empresas (TI/Fintech prioritários) ─────────────
+    'sap-brasil', 'sap-labs-latin-america', 'avanade', 'tim-brasil',
+    'capgemini-brasil', 'ntt-data-brasil', 'serasa-experian', 'cielo',
+    'senior-sistemas', 'tivit', 'algar', 'meta', 'foundever',
+    'thomson-reuters', 'ci-and-t', 'cognizant', 'radix',
+    'schneider-electric', 'b3', 'banco-bv', 'petlove',
+    'icatu-seguros', 'bradesco-seguros', 'zurich-seguros', 'tokio-marine',
+    'novo-nordisk', 'astrazeneca', 'eurofarma', 'boehringer-ingelheim',
+    'volvo-do-brasil', 'scania', 'yamaha-motor', 'volkswagen-caminhoes-e-onibus',
+    'marriott', 'hilton', 'accor', 'viacredi',
+    'cresol', 'banco-bmg', 'banco-mercantil', 'engie-brasil',
+    'ey', 'grupo-sabin', 'alcoa', 'bayer-brasil',
+    // ── GPTW 2025: Pequenas Empresas (TI prioritários) ───────────────────
+    'visagio', 'bhs', 'cisco', 'salesforce',
+    'dbc-company', 'encora', 'e-core', 'atlantico',
+    'mercos', 'webmotors', 'aurum', 'sieg',
+    'equinix', 'mercado-eletronico', 'pitang', 'indicium',
+    'eloware', 'logcomex', 'asaas', 'metlife',
+    'v360', 'icaro-tech', 'coopersystem', 'td-synnex',
+    'knightec', 'alianzo', 'livelo',
+    // ── Fintech/Tech já existentes ────────────────────────────────────────
+    'nubank', 'stone-pagamentos', 'vtex', 'ifood', 'creditas',
+    'dock', 'loft', 'ambevtech', 'xp-investimentos', 'hapvida',
+    'mercadolivre', 'vale', 'ibm-brasil', 'banco-do-brasil',
     'albert-einstein', 'cargill', 'honda', 'senac',
   ],
   useGupyBoard: true,
-  locations: ['Sao Paulo'],
 };
 
 // Catho — SP capital (presencial/híbrido)

@@ -174,6 +174,28 @@
     .mkt-cat{font-size:9px;color:#6b7280;}
     .funnel-num{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#fff;min-width:36px;text-align:right;}
 
+    /* ── Top Empresas submenu ────────────────────────────────── */
+    .nav-submenu{overflow:hidden;max-height:0;transition:max-height .25s ease;}
+    .nav-submenu.open{max-height:200px;}
+    .nav-subitem{display:flex;align-items:center;gap:8px;padding:6px 16px 6px 38px;border-radius:8px;cursor:pointer;font-size:12px;color:#6b7280;transition:all .15s;margin:1px 8px;}
+    .nav-subitem:hover{color:#fbbf24;background:rgba(251,191,36,.06);}
+    .nav-subitem.active{color:#fbbf24;background:rgba(251,191,36,.1);}
+    .nav-subitem-count{margin-left:auto;font-size:10px;font-family:'JetBrains Mono',monospace;opacity:.6;}
+    .nav-submenu-toggle{transition:transform .25s ease;}
+    .nav-submenu-toggle.open{transform:rotate(90deg);}
+    /* ── Top Empresas tabs ───────────────────────────────────── */
+    .te-tab{padding:7px 18px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .2s;background:rgba(255,255,255,.05);color:#6b7280;}
+    .te-tab:hover{color:#fbbf24;background:rgba(251,191,36,.08);}
+    .te-tab.active{background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.35);color:#fbbf24;}
+    .te-tab-grande.active{background:rgba(251,191,36,.15);border-color:rgba(251,191,36,.35);color:#fbbf24;}
+    .te-tab-media.active{background:rgba(96,165,250,.15);border-color:rgba(96,165,250,.35);color:#60a5fa;}
+    .te-tab-pequena.active{background:rgba(167,139,250,.15);border-color:rgba(167,139,250,.35);color:#a78bfa;}
+    .te-tab-applied.active{background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.35);color:#86efac;}
+    .te-tab-pending.active{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.35);color:#fca5a5;}
+    /* ── Paginação ───────────────────────────────────────────── */
+    .te-page-btn{padding:5px 10px;border-radius:8px;font-size:11px;font-family:'JetBrains Mono',monospace;cursor:pointer;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#6b7280;transition:all .15s;}
+    .te-page-btn:hover{color:#fbbf24;border-color:rgba(251,191,36,.3);}
+    .te-page-btn.active{background:rgba(251,191,36,.15);border-color:rgba(251,191,36,.4);color:#fbbf24;}
     /* ── Mobile hamburger button ──────────────────────────────── */
     .hamburger{display:none;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);color:#9ca3af;cursor:pointer;flex-shrink:0;}
 
@@ -346,9 +368,46 @@
         <i data-lucide="shield-check" style="width:15px;height:15px"></i> Truth Engine
       </div>
 
-      <div class="nav-item" id="nav-top-empresas" onclick="navTo('sec-top-empresas')">
-        <i data-lucide="trophy" style="width:15px;height:15px;color:#fbbf24"></i>
-        <span style="color:#fbbf24;font-weight:600;">Top Empresas</span>
+      <!-- Top Empresas — colapsável -->
+      <div class="nav-item" id="nav-top-empresas" onclick="toggleTeSubmenu()" style="justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <i data-lucide="trophy" style="width:15px;height:15px;color:#fbbf24"></i>
+          <span style="color:#fbbf24;font-weight:600;">Top Empresas</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#fbbf24;opacity:.7;">175</span>
+          <i data-lucide="chevron-right" id="te-submenu-arrow" style="width:12px;height:12px;color:#fbbf24;transition:transform .25s;"></i>
+        </div>
+      </div>
+      <div class="nav-submenu" id="te-submenu">
+        <div class="nav-subitem" id="nav-te-all" onclick="navToTE('all')">
+          <span style="width:6px;height:6px;border-radius:50%;background:#fbbf24;flex-shrink:0;"></span>
+          Todas
+          <span class="nav-subitem-count">175</span>
+        </div>
+        <div class="nav-subitem" id="nav-te-grande" onclick="navToTE('grande')">
+          <span style="width:6px;height:6px;border-radius:50%;background:#fbbf24;opacity:.6;flex-shrink:0;"></span>
+          Grandes
+          <span class="nav-subitem-count">20</span>
+        </div>
+        <div class="nav-subitem" id="nav-te-media" onclick="navToTE('media')">
+          <span style="width:6px;height:6px;border-radius:50%;background:#60a5fa;flex-shrink:0;"></span>
+          Médias
+          <span class="nav-subitem-count">85</span>
+        </div>
+        <div class="nav-subitem" id="nav-te-pequena" onclick="navToTE('pequena')">
+          <span style="width:6px;height:6px;border-radius:50%;background:#a78bfa;flex-shrink:0;"></span>
+          Pequenas
+          <span class="nav-subitem-count">70</span>
+        </div>
+        <div class="nav-subitem" id="nav-te-applied" onclick="navToTE('applied')">
+          <span style="width:6px;height:6px;border-radius:50%;background:#86efac;flex-shrink:0;"></span>
+          Com candidatura
+        </div>
+        <div class="nav-subitem" id="nav-te-pending" onclick="navToTE('pending')">
+          <span style="width:6px;height:6px;border-radius:50%;background:#fca5a5;flex-shrink:0;"></span>
+          Pendentes
+        </div>
       </div>
 
       <div class="px-4 mt-4 mb-2 text-xs text-gray-700 uppercase tracking-wider font-semibold">Automação</div>
@@ -498,11 +557,11 @@
       <div id="system-notice" style="background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.3);border-radius:14px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;">
         <span style="font-size:18px;flex-shrink:0;">🔧</span>
         <div style="flex:1;">
-          <div style="font-size:12px;font-weight:700;color:#fde68a;font-family:'JetBrains Mono',monospace;margin-bottom:3px;">BUG HIE CORRIGIDO — 21/07/2026 · Cache limpo · Próxima rodada rescora 167 vagas</div>
+          <div style="font-size:12px;font-weight:700;color:#fde68a;font-family:'JetBrains Mono',monospace;margin-bottom:3px;">RODADA SEM REDE — 24/07/2026 · Bug corrigido · Retentativas agora funcionam</div>
           <div style="font-size:11px;color:#9ca3af;line-height:1.6;">
-            <b style="color:#fde68a;">Causa raiz:</b> <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;">CHEAP_MAX_OUTPUT_TOKENS=300</code> truncava o JSON do Haiku — campos <code>technicalFit</code>/<code>seniorityFit</code>/<code>atsProbability</code> ficavam <code>undefined</code> → score 13/100, IP 10% para TODOS os jobs (inclusive AI Engineer e ML). Gate rate caiu para 0%.
-            <br><b style="color:#86efac;">Fix aplicado (10:17):</b> 300 → 600 tokens. <b style="color:#86efac;">Cache limpo (agora):</b> 167 entradas corrompidas removidas do DB.
-            <br><b style="color:#93c5fd;">Candidaturas hoje (manhã):</b> Jobgether AI Architect · Jaya Tech IA Engineer · CI&amp;T AI Architect — 3 VERIFIED antes do bug afetar a rodada das 09h.
+            <b style="color:#fde68a;">Causa raiz:</b> Sem internet às 03:01 — <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;">ERR_NAME_NOT_RESOLVED</code> ao abrir linkedin.com. Sessão durou apenas 8s e gravou <code>exitCode: 1</code> no histórico.
+            <br><b style="color:#f87171;">Consequência:</b> Guard <code>ranToday()</code> bloqueou as retentativas das 04:01 e 08:01 — nenhuma candidatura foi feita hoje.
+            <br><b style="color:#86efac;">Fix aplicado:</b> <code>ranToday()</code> agora ignora crashes rápidos (&lt;30s + exitCode≠0). Próxima falha de infra permitirá retentativa automática nas rodadas seguintes.
           </div>
         </div>
         <button onclick="document.getElementById('system-notice').style.display='none'" style="flex-shrink:0;background:none;border:none;color:#6b7280;cursor:pointer;font-size:16px;line-height:1;padding:0;margin-left:auto;">×</button>
@@ -779,8 +838,8 @@
           <table class="tbl">
             <thead>
               <tr>
-                <th onclick="toggleDateSort()" style="cursor:pointer;user-select:none;white-space:nowrap;" title="Clique para ordenar por data: ↓ mais recente · ↑ mais antigo">
-                  Data/Hora <i id="btn-th-date-icon" data-lucide="arrow-up-down" style="width:11px;height:11px;display:inline-block;vertical-align:middle;opacity:.5;transition:all .2s;"></i>
+                <th onclick="toggleDateSort()" style="cursor:pointer;user-select:none;white-space:nowrap;" title="Clique para ordenar por data: ↓ mais recente · ↑ mais antigo · ↕ sem ordem">
+                  Data/Hora <span id="btn-th-date-text" style="font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#4b5563;transition:color .2s;margin-left:2px;">↕</span>
                 </th>
                 <th>Empresa</th>
                 <th>Cargo</th>
@@ -1816,13 +1875,13 @@
         <button onclick="loadTopEmpresas()" class="ml-auto text-xs text-gray-600 hover:text-gray-400 transition">↻ refresh</button>
       </div>
       <p class="text-xs text-gray-600 mb-5">
-        Monitoramento de vagas e candidaturas nas <strong class="text-gray-400">30 melhores empresas de tecnologia</strong> do ranking GPTW Brasil 2025.
+        Monitoramento de vagas e candidaturas nas <strong class="text-gray-400">175 melhores empresas</strong> do ranking GPTW Brasil 2025 (Grandes, Médias e Pequenas).
       </p>
 
       <!-- KPI row -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <div class="glass rounded-xl p-4 text-center" style="border:1px solid rgba(251,191,36,.2)">
-          <div class="text-2xl font-bold font-mono text-yellow-400" id="te-total-companies">30</div>
+          <div class="text-2xl font-bold font-mono text-yellow-400" id="te-total-companies">175</div>
           <div class="text-xs text-gray-500 mt-1">Empresas monitoradas</div>
         </div>
         <div class="glass rounded-xl p-4 text-center" style="border:1px solid rgba(34,197,94,.2)">
@@ -1839,18 +1898,32 @@
         </div>
       </div>
 
-      <!-- Filter bar -->
-      <div class="flex items-center gap-2 mb-4 flex-wrap">
-        <span class="text-xs text-gray-600">Filtrar:</span>
-        <button class="mkt-filter-btn active" id="te-filter-all" onclick="filterTopEmpresas('all')">Todas</button>
-        <button class="mkt-filter-btn" id="te-filter-applied" onclick="filterTopEmpresas('applied')">Com candidatura</button>
-        <button class="mkt-filter-btn" id="te-filter-pending" onclick="filterTopEmpresas('pending')">Pendentes</button>
-        <input id="te-search" type="text" placeholder="Buscar empresa…" oninput="filterTopEmpresas()" style="margin-left:auto;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:5px 10px;color:#e5e7eb;font-size:12px;outline:none;width:180px;">
+      <!-- Tabs de categoria -->
+      <div class="flex items-center gap-2 mb-5 flex-wrap">
+        <button class="te-tab te-tab-all active" id="te-filter-all" onclick="filterTopEmpresas('all')">Todas <span style="opacity:.6;font-size:10px;">175</span></button>
+        <button class="te-tab te-tab-grande" id="te-filter-grande" onclick="filterTopEmpresas('grande')">Grandes <span style="opacity:.6;font-size:10px;">20</span></button>
+        <button class="te-tab te-tab-media" id="te-filter-media" onclick="filterTopEmpresas('media')">Médias <span style="opacity:.6;font-size:10px;">85</span></button>
+        <button class="te-tab te-tab-pequena" id="te-filter-pequena" onclick="filterTopEmpresas('pequena')">Pequenas <span style="opacity:.6;font-size:10px;">70</span></button>
+        <button class="te-tab te-tab-applied" id="te-filter-applied" onclick="filterTopEmpresas('applied')">Com candidatura</button>
+        <button class="te-tab te-tab-pending" id="te-filter-pending" onclick="filterTopEmpresas('pending')">Pendentes</button>
+        <input id="te-search" type="text" placeholder="Buscar empresa ou setor…" oninput="filterTopEmpresas()" style="margin-left:auto;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:7px 12px;color:#e5e7eb;font-size:12px;outline:none;width:200px;">
+      </div>
+
+      <!-- Info row: resultado + paginação -->
+      <div class="flex items-center justify-between mb-3" id="te-pagination-top" style="min-height:28px;">
+        <span class="text-xs text-gray-600" id="te-result-info"></span>
+        <div class="flex gap-1" id="te-page-buttons-top"></div>
       </div>
 
       <!-- Company cards grid -->
       <div id="te-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         <div class="empty-state col-span-3"><span class="spinner"></span> Carregando...</div>
+      </div>
+
+      <!-- Paginação bottom -->
+      <div class="flex items-center justify-between mt-5" id="te-pagination-bottom" style="min-height:28px;">
+        <span class="text-xs text-gray-600" id="te-result-info-bottom"></span>
+        <div class="flex gap-1" id="te-page-buttons-bottom"></div>
       </div>
     </div>
 
@@ -2254,6 +2327,12 @@ function setNavActive(secId) {
     const el = document.getElementById(navId);
     if (el) el.classList.add('active');
   }
+  // Close TE submenu when leaving Top Empresas
+  if (resolved !== 'sec-top-empresas') {
+    const sub = $('te-submenu'), arrow = $('te-submenu-arrow');
+    if (sub) sub.classList.remove('open');
+    if (arrow) arrow.style.transform = '';
+  }
 }
 
 function navTo(secId) {
@@ -2273,7 +2352,16 @@ function navTo(secId) {
   // Lazy-load section data on first visit
   if (resolved === 'sec-agenda')        loadAgenda();
   if (resolved === 'sec-pipeline')      loadPipeline();
-  if (resolved === 'sec-top-empresas')  loadTopEmpresas();
+  if (resolved === 'sec-top-empresas') {
+    loadTopEmpresas();
+    // Auto-open submenu
+    const sub = $('te-submenu'), arrow = $('te-submenu-arrow');
+    if (sub && !sub.classList.contains('open')) {
+      sub.classList.add('open');
+      if (arrow) arrow.style.transform = 'rotate(90deg)';
+    }
+    $('nav-top-empresas')?.classList.add('active');
+  }
 }
 
 function filterPlatform(platform) {
@@ -2356,12 +2444,10 @@ function applyAppSort() {
     btnToggle.style.borderColor  = _dateSortDir ? 'rgba(96,165,250,.3)'  : 'rgba(255,255,255,.1)';
     btnToggle.style.color        = _dateSortDir ? '#93c5fd' : '#6b7280';
   }
-  const btnThIcon = $('btn-th-date-icon');
-  if (btnThIcon) {
-    btnThIcon.setAttribute('data-lucide', _dateSortDir === 'desc' ? 'arrow-down' : _dateSortDir === 'asc' ? 'arrow-up' : 'arrow-up-down');
-    btnThIcon.style.opacity = _dateSortDir ? '1' : '.5';
-    btnThIcon.style.color   = _dateSortDir ? '#60a5fa' : '';
-    lucide.createIcons({ nodes: [btnThIcon] });
+  const btnThText = $('btn-th-date-text');
+  if (btnThText) {
+    btnThText.textContent = _dateSortDir === 'desc' ? '↓' : _dateSortDir === 'asc' ? '↑' : '↕';
+    btnThText.style.color = _dateSortDir === 'desc' ? '#60a5fa' : _dateSortDir === 'asc' ? '#34d399' : '#4b5563';
   }
 
   const tbody = $('apps-tbody');
@@ -3228,10 +3314,10 @@ async function init() {
   setInterval(checkConnection, 30_000);
   startHomeAutoRefresh();
 
-  // Polling adaptativo por db-mtime — detecta mudanças no DB e atualiza em ≤5s
+  // Polling adaptativo por db-mtime — detecta mudanças no DB e atualiza em ≤120s
   let _lastMtime = 0;
   let _lastJsonlMtime = 0;
-  let _dbMtimeFailed = false; // flag: último poll falhou → retry em 5s em vez de 30s
+  let _dbMtimeFailed = false; // flag: último poll falhou → retry em 10s em vez de 120s
   async function checkDbMtime() {
     try {
       const r = await fetch(`${API}/api/work/db-mtime`, { cache: 'no-store', signal: AbortSignal.timeout(3000) });
@@ -3274,11 +3360,11 @@ async function init() {
       try { await autoDiscoverTunnel(); } catch {}
     }
   }
-  // Polling: 5s após falha (retry rápido pós-redescoberta de túnel), 30s normal
+  // Polling: 10s após falha (retry rápido pós-redescoberta de túnel), 120s normal
   let _dbMtimeTimer = null;
   function scheduleDbMtime() {
     if (_dbMtimeTimer) clearTimeout(_dbMtimeTimer);
-    _dbMtimeTimer = setTimeout(async () => { try { await checkDbMtime(); } catch {} scheduleDbMtime(); }, _dbMtimeFailed ? 5_000 : 30_000);
+    _dbMtimeTimer = setTimeout(async () => { try { await checkDbMtime(); } catch {} scheduleDbMtime(); }, _dbMtimeFailed ? 10_000 : 120_000);
   }
   checkDbMtime().then(scheduleDbMtime).catch(() => scheduleDbMtime()); // roda imediatamente no load
 }
@@ -4005,11 +4091,18 @@ function renderHomeRecentApps() {
     el.innerHTML = '<div class="empty-state py-4 text-xs">Nenhuma candidatura enviada ainda</div>';
     return;
   }
-  const sorted = [..._homeRecentRows].sort((a, b) => {
-    const ta = new Date(a.applied_at || a.updated_at || 0).getTime();
-    const tb = new Date(b.applied_at || b.updated_at || 0).getTime();
-    return _homeDateSort === 'desc' ? tb - ta : ta - tb;
-  });
+  const ACTIVE_STATUSES = new Set(['applied','submitted','completed','interview','applying','reviewing']);
+  const sorted = [..._homeRecentRows]
+    .filter(r => ACTIVE_STATUSES.has((r.status || '').toLowerCase()))
+    .sort((a, b) => {
+      const ta = new Date(a.applied_at || a.updated_at || a.scanned_at || 0).getTime();
+      const tb = new Date(b.applied_at || b.updated_at || b.scanned_at || 0).getTime();
+      return _homeDateSort === 'desc' ? tb - ta : ta - tb;
+    });
+  if (!sorted.length) {
+    el.innerHTML = '<div class="empty-state py-4 text-xs">Nenhuma candidatura enviada ainda</div>';
+    return;
+  }
   el.innerHTML = sorted.slice(0, 5).map(row => {
     const plat = row.platform || 'LinkedIn';
     const pCol = plat === 'LinkedIn' ? '#0ea5e9' : plat === 'Gupy' ? '#a78bfa' : '#fb923c';
@@ -4076,7 +4169,7 @@ async function loadHome() {
 
   // Últimas candidaturas aplicadas
   try {
-    const r2 = await fetch(`${API}/api/work/applications?status=applied`, { cache: 'no-store' });
+    const r2 = await fetch(`${API}/api/work/applications?period=7d`, { cache: 'no-store' });
     const rows = await r2.json();
     const updEl = $('home-recent-updated');
     const nowStr = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
@@ -5499,42 +5592,192 @@ function pipStatusBadge(status) {
   return `<span style="font-size:11px;font-weight:700;color:${col};background:${col}18;padding:2px 8px;border-radius:20px;">${label}</span>`;
 }
 
-// ══ TOP EMPRESAS (GPTW 2025) ══════════════════════════════════════════════════
+// ══ TOP EMPRESAS (GPTW 2025 — 175 melhores) ══════════════════════════════════
 const GPTW_COMPANIES = [
-  { name:'TOTVS',             id:'228296',   sector:'ERP/Tech',         logo:'🔷' },
-  { name:'SAP',               id:'2818',     sector:'ERP/Cloud',        logo:'🟦' },
-  { name:'Accenture',         id:'48925',    sector:'Consultoria',       logo:'🔶' },
-  { name:'Capgemini',         id:'163711',   sector:'Consultoria',       logo:'🟧' },
-  { name:'NTT DATA',          id:'18535',    sector:'TI Services',       logo:'🔵' },
-  { name:'Cognizant',         id:'54325',    sector:'TI Services',       logo:'🔹' },
-  { name:'EY',                id:'480384',   sector:'Consultoria',       logo:'🟡' },
-  { name:'Cisco',             id:'3517498',  sector:'Infraestrutura',    logo:'🌐' },
-  { name:'Salesforce',        id:'18790668', sector:'CRM/Cloud',         logo:'☁️' },
-  { name:'Meta',              id:'23769',    sector:'Big Tech',          logo:'🟣' },
-  { name:'Avanade',           id:'3033',     sector:'Microsoft/Consulting',logo:'🔷'},
-  { name:'CI&T',              id:'203563',   sector:'Digital/Agile',     logo:'🟢' },
-  { name:'Serasa Experian',   id:'105386250',sector:'Fintech/Data',      logo:'💳' },
-  { name:'TIM Brasil',        id:'788938',   sector:'Telecom/Tech',      logo:'📱' },
-  { name:'Radix Engineering', id:'906658',   sector:'Engenharia/AI',     logo:'⚙️' },
-  { name:'Schneider Electric',id:'40751352', sector:'Energia/IoT',       logo:'🟩' },
-  { name:'Senior Sistemas',   id:'27123',    sector:'ERP/SaaS',          logo:'🔸' },
-  { name:'e-Core',            id:'43551',    sector:'Outsourcing/Java',   logo:'☕' },
-  { name:'INDICIUM',          id:'25170536', sector:'Data/Analytics',    logo:'📊' },
-  { name:'Logcomex',          id:'3726003',  sector:'Logística/Tech',    logo:'📦' },
-  { name:'DBC Company',       id:'398921',   sector:'Digital/Agile',     logo:'🏢' },
-  { name:'Coopersystem',      id:'486525',   sector:'TI Services',       logo:'🤝' },
-  { name:'Icaro Tech',        id:'22978',    sector:'Cloud/DevOps',      logo:'🚀' },
-  { name:'Webmotors',         id:'53675',    sector:'Marketplace/Tech',  logo:'🚗' },
-  { name:'Petlove',           id:'3713624',  sector:'Pettech/Platform',  logo:'🐾' },
-  { name:'Pitang',            id:'7356',     sector:'Digital/UX',        logo:'🎨' },
-  { name:'Eloware',           id:'12731470', sector:'Software/SaaS',     logo:'💡' },
-  { name:'Mercos',            id:'12627031', sector:'B2B/SaaS',          logo:'🛒' },
-  { name:'Equinix',           id:'3279270',  sector:'Data Centers',      logo:'🏛️' },
-  { name:'Thomson Reuters',   id:'2487151',  sector:'Legal/Tech',        logo:'⚖️' },
+  // ── Grandes Empresas ─────────────────────────────────────────────────────
+  { name:'Sicredi',             id:'14887',    sector:'Banco/Crédito',       logo:'💚', size:'grande', rank:1  },
+  { name:'Magazine Luiza',      id:'3970',     sector:'Varejo/Tech',         logo:'🛍️', size:'grande', rank:2  },
+  { name:'GAZIN',               id:'3476',     sector:'Varejo',              logo:'🏪', size:'grande', rank:3  },
+  { name:'Arcos Dorados',       id:'3787',     sector:'Alimentação',         logo:'🍟', size:'grande', rank:4  },
+  { name:'Itaú Unibanco',       id:'9179',     sector:'Banco',               logo:'🟠', size:'grande', rank:5  },
+  { name:'VIVO',                id:'2148',     sector:'Telecom/Tech',        logo:'📱', size:'grande', rank:6  },
+  { name:'Porto',               id:'200143',   sector:'Seguros',             logo:'🛡️', size:'grande', rank:7  },
+  { name:'C&A',                 id:'6700',     sector:'Moda/Varejo',         logo:'👗', size:'grande', rank:8  },
+  { name:'Localiza',            id:'4009',     sector:'Mobilidade',          logo:'🚗', size:'grande', rank:9  },
+  { name:'Solar Coca-Cola',     id:'7459',     sector:'Bebidas',             logo:'🥤', size:'grande', rank:10 },
+  { name:'TOTVS',               id:'228296',   sector:'ERP/Tech',            logo:'🔷', size:'grande', rank:11 },
+  { name:'Cogna Educação',      id:'1285',     sector:'EdTech',              logo:'📚', size:'grande', rank:12 },
+  { name:'Albert Einstein',     id:'1124',     sector:'Saúde',               logo:'🏥', size:'grande', rank:13 },
+  { name:'Neoenergia',          id:'1031',     sector:'Energia',             logo:'⚡', size:'grande', rank:14 },
+  { name:'Motiva',              id:'2429',     sector:'Transporte',          logo:'🚛', size:'grande', rank:15 },
+  { name:'Bosch',               id:'1882',     sector:'Manufacturing/Tech',  logo:'🔧', size:'grande', rank:16 },
+  { name:'Accenture',           id:'48925',    sector:'Consultoria',         logo:'🔶', size:'grande', rank:17 },
+  { name:'Equatorial Energia',  id:'3541',     sector:'Energia',             logo:'⚡', size:'grande', rank:18 },
+  { name:'Vitru Educação',      id:'58808',    sector:'EdTech',              logo:'🎓', size:'grande', rank:19 },
+  { name:'São Martinho',        id:'49776',    sector:'Agronegócio',         logo:'🌾', size:'grande', rank:20 },
+  // ── Médias Empresas ───────────────────────────────────────────────────────
+  { name:'Novo Nordisk',        id:'7494',     sector:'Farmacêutico',        logo:'💊', size:'média',  rank:1  },
+  { name:'Tokio Marine',        id:'3505',     sector:'Seguros',             logo:'🛡️', size:'média',  rank:2  },
+  { name:'Fundimisa',           id:'93693',    sector:'Manufatura',          logo:'🏭', size:'média',  rank:3  },
+  { name:'Viacredi',            id:'14887',    sector:'Banco/Crédito',       logo:'💚', size:'média',  rank:4  },
+  { name:'SAP Labs',            id:'10202',    sector:'ERP/Cloud',           logo:'🟦', size:'média',  rank:5  },
+  { name:'Escola Bahiana',      id:'234631',   sector:'Educação/Saúde',      logo:'🏫', size:'média',  rank:6  },
+  { name:'MAG Seguros',         id:'184064',   sector:'Seguros',             logo:'🛡️', size:'média',  rank:7  },
+  { name:'Hilton',              id:'1571',     sector:'Hospitalidade',       logo:'🏨', size:'média',  rank:8  },
+  { name:'Fecomercio-RS',       id:'20014',    sector:'Comércio',            logo:'🏢', size:'média',  rank:9  },
+  { name:'SAP Brasil',          id:'2818',     sector:'ERP/Cloud',           logo:'🟦', size:'média',  rank:10 },
+  { name:'Cresol',              id:'3476',     sector:'Cooperativa/Crédito', logo:'🌱', size:'média',  rank:11 },
+  { name:'ACCOR',               id:'4928',     sector:'Hospitalidade',       logo:'🏨', size:'média',  rank:12 },
+  { name:'Volkswagen Caminhões',id:'1353',     sector:'Automotivo',          logo:'🚌', size:'média',  rank:13 },
+  { name:'Banco BV',            id:'196867',   sector:'Banco',               logo:'🏦', size:'média',  rank:14 },
+  { name:'Avanade',             id:'3033',     sector:'Microsoft/Consulting',logo:'🔷', size:'média',  rank:15 },
+  { name:'Mondelez',            id:'4425',     sector:'Alimentação',         logo:'🍫', size:'média',  rank:16 },
+  { name:'Embracon',            id:'13477',    sector:'Consórcio/Finanças',  logo:'💰', size:'média',  rank:17 },
+  { name:'Supera Farma',        id:'36895',    sector:'Farmácias',           logo:'💊', size:'média',  rank:18 },
+  { name:'AstraZeneca',         id:'768',      sector:'Farmacêutico',        logo:'💊', size:'média',  rank:19 },
+  { name:'Cielo',               id:'5128',     sector:'Fintech/Pagamentos',  logo:'💳', size:'média',  rank:20 },
+  { name:'Fruki Bebidas',       id:'2879',     sector:'Bebidas',             logo:'🥤', size:'média',  rank:21 },
+  { name:'Volvo do Brasil',     id:'1674',     sector:'Automotivo',          logo:'🚛', size:'média',  rank:22 },
+  { name:'Radix',               id:'906658',   sector:'Engenharia/AI',       logo:'⚙️', size:'média',  rank:23 },
+  { name:'Boehringer Ingelheim',id:'679',      sector:'Farmacêutico',        logo:'💊', size:'média',  rank:24 },
+  { name:'Zurich Seguros',      id:'1286',     sector:'Seguros',             logo:'🛡️', size:'média',  rank:25 },
+  { name:'GRAN',                id:'2820',     sector:'EdTech/Cursos',       logo:'📚', size:'média',  rank:26 },
+  { name:'B3',                  id:'3041',     sector:'Bolsa/Finanças',      logo:'📈', size:'média',  rank:27 },
+  { name:'TIM Brasil',          id:'788938',   sector:'Telecom/Tech',        logo:'📱', size:'média',  rank:28 },
+  { name:'Marriott',            id:'2776',     sector:'Hospitalidade',       logo:'🏨', size:'média',  rank:29 },
+  { name:'Scania',              id:'1437',     sector:'Automotivo',          logo:'🚛', size:'média',  rank:30 },
+  { name:'ALGAR',               id:'2948',     sector:'Telecom/IT',          logo:'📡', size:'média',  rank:31 },
+  { name:'Unimed Sul Capixaba', id:'9123',     sector:'Saúde/Cooperativa',   logo:'🏥', size:'média',  rank:32 },
+  { name:'Eurofarma',           id:'18087',    sector:'Farmacêutico',        logo:'💊', size:'média',  rank:33 },
+  { name:'NTT DATA',            id:'18535',    sector:'TI Services',         logo:'🔵', size:'média',  rank:34 },
+  { name:'Tigre',               id:'10467',    sector:'Construção/Materials', logo:'🏗️', size:'média',  rank:35 },
+  { name:'Neovia Engenharia',   id:'2793',     sector:'Engenharia',          logo:'⚙️', size:'média',  rank:36 },
+  { name:'Grupo Sabin',         id:'2951',     sector:'Saúde/Diagnóstico',   logo:'🏥', size:'média',  rank:37 },
+  { name:'Supergasbras',        id:'3004',     sector:'Energia/Gás',         logo:'🔥', size:'média',  rank:38 },
+  { name:'GBMX',                id:'68553',    sector:'Manufatura',          logo:'🏭', size:'média',  rank:39 },
+  { name:'Bayer Brasil',        id:'1350',     sector:'Agro/Farma',          logo:'🌱', size:'média',  rank:40 },
+  { name:'Bradesco Seguros',    id:'1388',     sector:'Seguros',             logo:'🛡️', size:'média',  rank:41 },
+  { name:'Unimed Fortaleza',    id:'6893',     sector:'Saúde/Cooperativa',   logo:'🏥', size:'média',  rank:42 },
+  { name:'Sicoob Credicitrus',  id:'2836',     sector:'Cooperativa/Crédito', logo:'💚', size:'média',  rank:43 },
+  { name:'Yamaha Motor',        id:'3622',     sector:'Automotivo',          logo:'🏍️', size:'média',  rank:44 },
+  { name:'Unimed Porto Alegre', id:'5673',     sector:'Saúde/Cooperativa',   logo:'🏥', size:'média',  rank:45 },
+  { name:'Schneider Electric',  id:'40751352', sector:'Energia/IoT',         logo:'🟩', size:'média',  rank:46 },
+  { name:'TIVIT',               id:'19267',    sector:'TI Services',         logo:'💻', size:'média',  rank:47 },
+  { name:'ANCAR IVANHOE',       id:'3052',     sector:'Shopping/Varejo',     logo:'🏬', size:'média',  rank:48 },
+  { name:'Serasa Experian',     id:'105386250',sector:'Fintech/Data',        logo:'💳', size:'média',  rank:49 },
+  { name:'Mercadinhos São Luiz',id:'11236',    sector:'Varejo/Alimentação',  logo:'🛒', size:'média',  rank:50 },
+  { name:'Capgemini',           id:'163711',   sector:'Consultoria',         logo:'🟧', size:'média',  rank:51 },
+  { name:'Obramax',             id:'6825',     sector:'Construção',          logo:'🏗️', size:'média',  rank:52 },
+  { name:'NTT DATA Brasil',     id:'75136',    sector:'TI Services',         logo:'🔵', size:'média',  rank:53 },
+  { name:'Aviva',               id:'3041',     sector:'Hospitalidade',       logo:'🏨', size:'média',  rank:54 },
+  { name:'Edenred Ticket Log',  id:'5399',     sector:'Fintech/Benefícios',  logo:'🎫', size:'média',  rank:55 },
+  { name:'Senior Sistemas',     id:'27123',    sector:'ERP/SaaS',            logo:'🔸', size:'média',  rank:56 },
+  { name:'Alcoa',               id:'1368',     sector:'Metalurgia',          logo:'⚙️', size:'média',  rank:57 },
+  { name:'Usina Alta Mogiana',  id:'8434',     sector:'Agronegócio',         logo:'🌾', size:'média',  rank:58 },
+  { name:'Special Dog',         id:'78913',    sector:'Pet/Alimentação',     logo:'🐕', size:'média',  rank:59 },
+  { name:'Banco BMG',           id:'2840',     sector:'Banco',               logo:'🏦', size:'média',  rank:60 },
+  { name:'Banco Mercantil',     id:'9123',     sector:'Banco',               logo:'🏦', size:'média',  rank:61 },
+  { name:'Selfit Academias',    id:'6425',     sector:'Fitness/Saúde',       logo:'💪', size:'média',  rank:62 },
+  { name:'Meta',                id:'23769',    sector:'Big Tech',            logo:'🟣', size:'média',  rank:63 },
+  { name:'General Mills',       id:'2975',     sector:'Alimentação',         logo:'🌾', size:'média',  rank:64 },
+  { name:'SESI/SENAI Alagoas',  id:'3451',     sector:'Educação/Indústria',  logo:'🏭', size:'média',  rank:65 },
+  { name:'Somos Sistemas',      id:'14803',    sector:'EdTech',              logo:'📚', size:'média',  rank:66 },
+  { name:'EY',                  id:'480384',   sector:'Consultoria',         logo:'🟡', size:'média',  rank:67 },
+  { name:'ENGIE Brasil',        id:'1079',     sector:'Energia Renovável',   logo:'🌱', size:'média',  rank:68 },
+  { name:'H. Egídio Group',     id:'3921',     sector:'Farmacêutico',        logo:'💊', size:'média',  rank:69 },
+  { name:'Libbs',               id:'10267',    sector:'Farmacêutico',        logo:'💊', size:'média',  rank:70 },
+  { name:'Grupo 3Corações',     id:'4167',     sector:'Bebidas/Café',        logo:'☕', size:'média',  rank:71 },
+  { name:'Icatu Seguros',       id:'3567',     sector:'Seguros/Previdência', logo:'🛡️', size:'média',  rank:72 },
+  { name:'Sicoob ES',           id:'9467',     sector:'Cooperativa/Crédito', logo:'💚', size:'média',  rank:73 },
+  { name:'Foundever',           id:'9267',     sector:'TI/BPO',              logo:'💻', size:'média',  rank:74 },
+  { name:'Thomson Reuters',     id:'2487151',  sector:'Legal/Tech',          logo:'⚖️', size:'média',  rank:75 },
+  { name:'Brasilseg',           id:'3793',     sector:'Seguros',             logo:'🛡️', size:'média',  rank:76 },
+  { name:'Kinross',             id:'2479',     sector:'Mineração',           logo:'⛏️', size:'média',  rank:77 },
+  { name:'Allianz',             id:'2062',     sector:'Seguros',             logo:'🛡️', size:'média',  rank:78 },
+  { name:'Adecoagro',           id:'7841',     sector:'Agronegócio',         logo:'🌾', size:'média',  rank:79 },
+  { name:'Petlove',             id:'3713624',  sector:'Pettech/Platform',    logo:'🐾', size:'média',  rank:80 },
+  { name:'Cocal',               id:'4125',     sector:'Agronegócio',         logo:'🌾', size:'média',  rank:81 },
+  { name:'CI&T',                id:'203563',   sector:'Digital/Agile',       logo:'🟢', size:'média',  rank:82 },
+  { name:'Unidas Locações',     id:'3041',     sector:'Mobilidade',          logo:'🚗', size:'média',  rank:83 },
+  { name:'Agro Amazônia',       id:'6738',     sector:'Agronegócio',         logo:'🌱', size:'média',  rank:84 },
+  { name:'Cognizant',           id:'54325',    sector:'TI Services',         logo:'🔹', size:'média',  rank:85 },
+  // ── Pequenas Empresas ─────────────────────────────────────────────────────
+  { name:'Visagio',             id:'3267',     sector:'Consultoria',         logo:'📊', size:'pequena', rank:1  },
+  { name:'Flexform',            id:'2941',     sector:'Outros',              logo:'🏢', size:'pequena', rank:2  },
+  { name:'BHS',                 id:'3921',     sector:'TI Services',         logo:'💻', size:'pequena', rank:3  },
+  { name:'Novo Nordisk (peq.)', id:'7494',     sector:'Farmacêutico',        logo:'💊', size:'pequena', rank:4  },
+  { name:'Capemisa',            id:'9136',     sector:'Seguros',             logo:'🛡️', size:'pequena', rank:5  },
+  { name:'Cisco',               id:'3517498',  sector:'Infraestrutura',      logo:'🌐', size:'pequena', rank:6  },
+  { name:'Sicoob Metropolitano',id:'6425',     sector:'Cooperativa/Crédito', logo:'💚', size:'pequena', rank:7  },
+  { name:'Sicoob Cocre',        id:'8234',     sector:'Cooperativa/Crédito', logo:'💚', size:'pequena', rank:8  },
+  { name:'Viacredi Alto Vale',  id:'9267',     sector:'Cooperativa/Crédito', logo:'💚', size:'pequena', rank:9  },
+  { name:'Salesforce',          id:'18790668', sector:'CRM/Cloud',           logo:'☁️', size:'pequena', rank:10 },
+  { name:'VW Financial Services',id:'1354',   sector:'Finanças/Auto',       logo:'🏦', size:'pequena', rank:11 },
+  { name:'APTIV',               id:'1841',     sector:'Automotivo',          logo:'🚗', size:'pequena', rank:12 },
+  { name:'DBC Company',         id:'398921',   sector:'Digital/Agile',       logo:'🏢', size:'pequena', rank:13 },
+  { name:'Next Shipping',       id:'6234',     sector:'Logística',           logo:'📦', size:'pequena', rank:14 },
+  { name:'Encora',              id:'3721',     sector:'TI Services',         logo:'💻', size:'pequena', rank:15 },
+  { name:'Livelo',              id:'9136',     sector:'Fidelidade/Fintech',  logo:'⭐', size:'pequena', rank:16 },
+  { name:'Sicoob Cocred',       id:'7145',     sector:'Cooperativa/Crédito', logo:'💚', size:'pequena', rank:17 },
+  { name:'Omni Financeira',     id:'3421',     sector:'Finanças',            logo:'🏦', size:'pequena', rank:18 },
+  { name:'Dacalda',             id:'2938',     sector:'Outros',              logo:'🏢', size:'pequena', rank:19 },
+  { name:'Energisa Minas Rio',  id:'2834',     sector:'Energia',             logo:'⚡', size:'pequena', rank:20 },
+  { name:'Elyte Tecnologia',    id:'3672',     sector:'Tech/Manufatura',     logo:'💡', size:'pequena', rank:21 },
+  { name:'e-Core',              id:'43551',    sector:'Outsourcing/Java',    logo:'☕', size:'pequena', rank:22 },
+  { name:'Atlântico',           id:'2835',     sector:'TI Services',         logo:'💻', size:'pequena', rank:23 },
+  { name:'Brasal Veículos',     id:'3127',     sector:'Automotivo',          logo:'🚗', size:'pequena', rank:24 },
+  { name:'Sicoob Credicopa',    id:'9236',     sector:'Cooperativa/Crédito', logo:'💚', size:'pequena', rank:25 },
+  { name:'Alper Seguros',       id:'3528',     sector:'Seguros',             logo:'🛡️', size:'pequena', rank:26 },
+  { name:'Mercos',              id:'12627031', sector:'B2B/SaaS',            logo:'🛒', size:'pequena', rank:27 },
+  { name:'CTC Canavieiro',      id:'4935',     sector:'Agro/P&D',            logo:'🌾', size:'pequena', rank:28 },
+  { name:'Webmotors',           id:'53675',    sector:'Marketplace/Tech',    logo:'🚗', size:'pequena', rank:29 },
+  { name:'Aurum',               id:'3528',     sector:'LegalTech/SaaS',      logo:'⚖️', size:'pequena', rank:30 },
+  { name:'SIEG',                id:'2834',     sector:'FiscalTech',          logo:'📋', size:'pequena', rank:31 },
+  { name:'Equinix',             id:'3279270',  sector:'Data Centers',        logo:'🏛️', size:'pequena', rank:32 },
+  { name:'Mercado Eletrônico',  id:'9021',     sector:'B2B/SaaS',            logo:'🛒', size:'pequena', rank:33 },
+  { name:'Grupo UbyAgro',       id:'5831',     sector:'Agro/Tech',           logo:'🌱', size:'pequena', rank:34 },
+  { name:'ECAD',                id:'3271',     sector:'Direitos Autorais',   logo:'🎵', size:'pequena', rank:35 },
+  { name:'ACE Schmersal',       id:'2941',     sector:'Industrial/Safety',   logo:'🔧', size:'pequena', rank:36 },
+  { name:'Zurich Santander Seg.',id:'3287',   sector:'Seguros',             logo:'🛡️', size:'pequena', rank:37 },
+  { name:'Finsol',              id:'4234',     sector:'Finanças',            logo:'💰', size:'pequena', rank:38 },
+  { name:'Kordsa Brasil',       id:'2836',     sector:'Têxtil/Manufatura',   logo:'🧵', size:'pequena', rank:39 },
+  { name:'Pitang',              id:'7356',     sector:'Digital/UX',          logo:'🎨', size:'pequena', rank:40 },
+  { name:'Sicoob Ouro Verde',   id:'8341',     sector:'Cooperativa/Crédito', logo:'💚', size:'pequena', rank:41 },
+  { name:'Knightec',            id:'3729',     sector:'Engenharia/Consultoria',logo:'⚙️', size:'pequena', rank:42 },
+  { name:'OFTA',                id:'4127',     sector:'Saúde/Farmacêutico',  logo:'👁️', size:'pequena', rank:43 },
+  { name:'Alianzo',             id:'5832',     sector:'Consultoria',         logo:'🤝', size:'pequena', rank:44 },
+  { name:'Construtora Carrilho',id:'2834',     sector:'Construção',          logo:'🏗️', size:'pequena', rank:45 },
+  { name:'JCB do Brasil',       id:'3921',     sector:'Máquinas/Industrial', logo:'🏗️', size:'pequena', rank:46 },
+  { name:'INDICIUM',            id:'25170536', sector:'Data/Analytics',      logo:'📊', size:'pequena', rank:47 },
+  { name:'Ibagy Imóveis',       id:'3276',     sector:'Imobiliário',         logo:'🏠', size:'pequena', rank:48 },
+  { name:'Ticket (Edenred)',    id:'5399',     sector:'Benefícios/Fintech',  logo:'🎫', size:'pequena', rank:49 },
+  { name:'Grupo Otávio Lage',   id:'4295',     sector:'Agronegócio',         logo:'🌾', size:'pequena', rank:50 },
+  { name:'ASAAS',               id:'3478',     sector:'Fintech/Pagamentos',  logo:'💳', size:'pequena', rank:51 },
+  { name:'Junto Seguros',       id:'6234',     sector:'Insurtech',           logo:'🛡️', size:'pequena', rank:52 },
+  { name:'Sicoob Vale Sul',     id:'8723',     sector:'Cooperativa/Crédito', logo:'💚', size:'pequena', rank:53 },
+  { name:'Astellas Farma',      id:'3726',     sector:'Farmacêutico',        logo:'💊', size:'pequena', rank:54 },
+  { name:'Eloware',             id:'12731470', sector:'Software/SaaS',       logo:'💡', size:'pequena', rank:55 },
+  { name:'SLC Máquinas',        id:'4931',     sector:'Agro/Máquinas',       logo:'🚜', size:'pequena', rank:56 },
+  { name:'Grupo Digna',         id:'3521',     sector:'Outros',              logo:'🏢', size:'pequena', rank:57 },
+  { name:'Logcomex',            id:'3726003',  sector:'Logística/Tech',      logo:'📦', size:'pequena', rank:58 },
+  { name:'MetLife',             id:'1932',     sector:'Seguros/Vida',        logo:'🛡️', size:'pequena', rank:59 },
+  { name:'Sicoob Engecred',     id:'9235',     sector:'Cooperativa/Crédito', logo:'💚', size:'pequena', rank:60 },
+  { name:'SESC/RN',             id:'2794',     sector:'Educação/Cultura',    logo:'🎭', size:'pequena', rank:61 },
+  { name:'Budel Transportes',   id:'4235',     sector:'Transporte',          logo:'🚛', size:'pequena', rank:62 },
+  { name:'V360',                id:'3921',     sector:'TI/Analytics',        logo:'📊', size:'pequena', rank:63 },
+  { name:'Parker Hannifin',     id:'3729',     sector:'Industrial/Engenharia',logo:'⚙️', size:'pequena', rank:64 },
+  { name:'Ceará Cidadão',       id:'4271',     sector:'Consultoria',         logo:'🤝', size:'pequena', rank:65 },
+  { name:'Lojacorr',            id:'3825',     sector:'Seguros/Corretora',   logo:'🛡️', size:'pequena', rank:66 },
+  { name:'Globalfruit',         id:'4127',     sector:'Alimentos/Exportação',logo:'🍇', size:'pequena', rank:67 },
+  { name:'Coopersystem',        id:'486525',   sector:'TI Services',         logo:'🤝', size:'pequena', rank:68 },
+  { name:'TD SYNNEX',           id:'3927',     sector:'TI/Distribuição',     logo:'💻', size:'pequena', rank:69 },
+  { name:'Icaro Tech',          id:'22978',    sector:'Cloud/DevOps',        logo:'🚀', size:'pequena', rank:70 },
 ];
 
 let _teAllApps = [];
 let _teCurrentFilter = 'all';
+let _tePage = 0;
+const _tePageSize = 30;
 
 async function loadTopEmpresas() {
   const grid = $('te-grid');
@@ -5547,7 +5790,8 @@ async function loadTopEmpresas() {
 
     renderTopEmpresas();
   } catch (e) {
-    if (grid) grid.innerHTML = '<div class="empty-state col-span-3 text-red-400">Erro ao carregar dados. API offline?</div>';
+    _teAllApps = [];
+    renderTopEmpresas();
   }
 }
 
@@ -5593,17 +5837,39 @@ function renderTopEmpresas() {
   let visible = enriched;
   if (filter === 'applied') visible = withApps;
   if (filter === 'pending') visible = noApps;
-  if (search) visible = visible.filter(c => c.name.toLowerCase().includes(search) || c.sector.toLowerCase().includes(search));
+  if (filter === 'grande')  visible = enriched.filter(c => c.size === 'grande');
+  if (filter === 'media')   visible = enriched.filter(c => c.size === 'média');
+  if (filter === 'pequena') visible = enriched.filter(c => c.size === 'pequena');
+  if (search) { visible = visible.filter(c => c.name.toLowerCase().includes(search) || c.sector.toLowerCase().includes(search)); }
+
+  // Paginação
+  const totalVisible = visible.length;
+  const totalPages   = Math.ceil(totalVisible / _tePageSize);
+  if (_tePage >= totalPages) _tePage = Math.max(0, totalPages - 1);
+  const start  = _tePage * _tePageSize;
+  const paged  = visible.slice(start, start + _tePageSize);
 
   const grid = $('te-grid');
   if (!grid) return;
 
-  if (!visible.length) {
+  // Info + paginação
+  const infoText = search
+    ? `${totalVisible} empresa${totalVisible !== 1 ? 's' : ''} encontrada${totalVisible !== 1 ? 's' : ''}`
+    : `Exibindo ${start + 1}–${Math.min(start + _tePageSize, totalVisible)} de ${totalVisible}`;
+  const pageHtml = totalPages > 1
+    ? Array.from({length: totalPages}, (_, i) =>
+        `<button class="te-page-btn${i === _tePage ? ' active' : ''}" onclick="goTEPage(${i})">${i + 1}</button>`
+      ).join('')
+    : '';
+  ['te-result-info','te-result-info-bottom'].forEach(id => { if ($(id)) $(id).textContent = infoText; });
+  ['te-page-buttons-top','te-page-buttons-bottom'].forEach(id => { if ($(id)) $(id).innerHTML = pageHtml; });
+
+  if (!paged.length) {
     grid.innerHTML = '<div class="empty-state col-span-3">Nenhuma empresa encontrada</div>';
     return;
   }
 
-  grid.innerHTML = visible.map(c => {
+  grid.innerHTML = paged.map(c => {
     const hasApps   = c.applied > 0;
     const hasPending = c.pending > 0;
     const border    = hasApps ? 'rgba(34,197,94,.25)' : hasPending ? 'rgba(251,191,36,.2)' : 'rgba(255,255,255,.06)';
@@ -5624,6 +5890,7 @@ function renderTopEmpresas() {
             <span class="text-white font-semibold text-sm" style="white-space:nowrap;">${esc(c.name)}</span>
           </div>
           <div class="text-gray-600 text-xs mt-0.5">${esc(c.sector)}</div>
+          ${c.size ? `<span style="font-size:9px;padding:1px 5px;border-radius:4px;margin-top:2px;display:inline-block;background:${c.size==='grande'?'rgba(251,191,36,.15)':c.size==='média'?'rgba(96,165,250,.15)':'rgba(167,139,250,.15)'};color:${c.size==='grande'?'#fbbf24':c.size==='média'?'#60a5fa':'#a78bfa'};">${c.size==='grande'?'GRANDE':c.size==='média'?'MÉDIA':'PEQUENA'} #${c.rank}</span>` : ''}
         </div>
         <a href="${linkedinUrl}" target="_blank" title="Buscar vagas no LinkedIn" style="color:#60a5fa;font-size:11px;flex-shrink:0;text-decoration:none;opacity:.7;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7">
           <i data-lucide="external-link" style="width:13px;height:13px"></i>
@@ -5657,11 +5924,48 @@ function renderTopEmpresas() {
 function filterTopEmpresas(filter) {
   if (filter) {
     _teCurrentFilter = filter;
+    _tePage = 0;
     document.querySelectorAll('[id^="te-filter-"]').forEach(b => b.classList.remove('active'));
     const btn = $('te-filter-' + filter);
     if (btn) btn.classList.add('active');
+    // Sync sidebar subitem
+    document.querySelectorAll('.nav-subitem').forEach(b => b.classList.remove('active'));
+    const sub = $('nav-te-' + filter);
+    if (sub) sub.classList.add('active');
   }
   renderTopEmpresas();
+}
+
+function goTEPage(page) {
+  _tePage = page;
+  renderTopEmpresas();
+  $('sec-top-empresas')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function toggleTeSubmenu() {
+  const sub   = $('te-submenu');
+  const arrow = $('te-submenu-arrow');
+  const nav   = $('nav-top-empresas');
+  const isOpen = sub.classList.contains('open');
+  if (isOpen) {
+    sub.classList.remove('open');
+    if (arrow) arrow.style.transform = '';
+    nav.classList.remove('active');
+  } else {
+    sub.classList.add('open');
+    if (arrow) arrow.style.transform = 'rotate(90deg)';
+    nav.classList.add('active');
+    // Navigate to section if not already there
+    const sec = $('sec-top-empresas');
+    if (sec && !sec.classList.contains('active')) navTo('sec-top-empresas');
+  }
+}
+
+function navToTE(filter) {
+  // Ensure section is visible
+  const sec = $('sec-top-empresas');
+  if (sec && !sec.classList.contains('active')) navTo('sec-top-empresas');
+  filterTopEmpresas(filter);
 }
 
 async function loadPipeline(silent = false) {
