@@ -346,6 +346,11 @@
         <i data-lucide="shield-check" style="width:15px;height:15px"></i> Truth Engine
       </div>
 
+      <div class="nav-item" id="nav-top-empresas" onclick="navTo('sec-top-empresas')">
+        <i data-lucide="trophy" style="width:15px;height:15px;color:#fbbf24"></i>
+        <span style="color:#fbbf24;font-weight:600;">Top Empresas</span>
+      </div>
+
       <div class="px-4 mt-4 mb-2 text-xs text-gray-700 uppercase tracking-wider font-semibold">Automação</div>
       <div class="nav-item" id="nav-hunt" onclick="navTo('sec-hunt')">
         <i data-lucide="play-circle" style="width:15px;height:15px"></i> Hunt Mode
@@ -774,8 +779,8 @@
           <table class="tbl">
             <thead>
               <tr>
-                <th onclick="toggleDateSort()" style="cursor:pointer;user-select:none;white-space:nowrap;">
-                  Data/Hora <span id="btn-th-date-icon" style="font-size:11px;opacity:.6;transition:all .2s;">↕</span>
+                <th onclick="toggleDateSort()" style="cursor:pointer;user-select:none;white-space:nowrap;" title="Clique para ordenar por data: ↓ mais recente · ↑ mais antigo">
+                  Data/Hora <i id="btn-th-date-icon" data-lucide="arrow-up-down" style="width:11px;height:11px;display:inline-block;vertical-align:middle;opacity:.5;transition:all .2s;"></i>
                 </th>
                 <th>Empresa</th>
                 <th>Cargo</th>
@@ -1803,6 +1808,52 @@
       </div>
     </div>
 
+    <!-- ── SECTION: TOP EMPRESAS (GPTW 2025) ─────────────────────────────────── -->
+    <div id="sec-top-empresas" class="sec-page px-8 py-6 border-b border-white/5">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="live-dot" style="background:#fbbf24;box-shadow:0 0 6px rgba(251,191,36,.7)"></span>
+        <span class="text-xs font-mono text-yellow-400 uppercase tracking-widest">Top Empresas — GPTW 2025 &amp; Best WorkPlaces</span>
+        <button onclick="loadTopEmpresas()" class="ml-auto text-xs text-gray-600 hover:text-gray-400 transition">↻ refresh</button>
+      </div>
+      <p class="text-xs text-gray-600 mb-5">
+        Monitoramento de vagas e candidaturas nas <strong class="text-gray-400">30 melhores empresas de tecnologia</strong> do ranking GPTW Brasil 2025.
+      </p>
+
+      <!-- KPI row -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div class="glass rounded-xl p-4 text-center" style="border:1px solid rgba(251,191,36,.2)">
+          <div class="text-2xl font-bold font-mono text-yellow-400" id="te-total-companies">30</div>
+          <div class="text-xs text-gray-500 mt-1">Empresas monitoradas</div>
+        </div>
+        <div class="glass rounded-xl p-4 text-center" style="border:1px solid rgba(34,197,94,.2)">
+          <div class="text-2xl font-bold font-mono text-green-400" id="te-total-applied">—</div>
+          <div class="text-xs text-gray-500 mt-1">Candidaturas enviadas</div>
+        </div>
+        <div class="glass rounded-xl p-4 text-center" style="border:1px solid rgba(96,165,250,.2)">
+          <div class="text-2xl font-bold font-mono text-blue-400" id="te-companies-with-apps">—</div>
+          <div class="text-xs text-gray-500 mt-1">Empresas com candidatura</div>
+        </div>
+        <div class="glass rounded-xl p-4 text-center" style="border:1px solid rgba(167,139,250,.2)">
+          <div class="text-2xl font-bold font-mono text-purple-400" id="te-companies-pending">—</div>
+          <div class="text-xs text-gray-500 mt-1">Empresas pendentes</div>
+        </div>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="flex items-center gap-2 mb-4 flex-wrap">
+        <span class="text-xs text-gray-600">Filtrar:</span>
+        <button class="mkt-filter-btn active" id="te-filter-all" onclick="filterTopEmpresas('all')">Todas</button>
+        <button class="mkt-filter-btn" id="te-filter-applied" onclick="filterTopEmpresas('applied')">Com candidatura</button>
+        <button class="mkt-filter-btn" id="te-filter-pending" onclick="filterTopEmpresas('pending')">Pendentes</button>
+        <input id="te-search" type="text" placeholder="Buscar empresa…" oninput="filterTopEmpresas()" style="margin-left:auto;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:5px 10px;color:#e5e7eb;font-size:12px;outline:none;width:180px;">
+      </div>
+
+      <!-- Company cards grid -->
+      <div id="te-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        <div class="empty-state col-span-3"><span class="spinner"></span> Carregando...</div>
+      </div>
+    </div>
+
     <!-- Spacer final para chat -->
     <div class="h-20"></div>
 
@@ -1939,9 +1990,26 @@ async function autoDiscoverTunnel() {
           console.log('[VRAXIA] Túnel via api-config.json:', cfg.apiUrl);
           return;
         }
-        // URL do api-config.json offline — não cai para localStorage (evita dados antigos).
-        // localStorage já foi atualizado acima: próxima visita tentará a URL correta.
+        // URL do api-config.json local está offline — tenta Vercel estável para ver se tem URL mais nova.
         console.warn('[VRAXIA] api-config.json URL offline:', cfg.apiUrl);
+        try {
+          const _sv = localStorage.getItem('vraxia_vercel_url') || 'https://vraxia-platform.vercel.app';
+          const _vc2 = await fetch(`${_sv}/api-config.json?_=${Date.now()}`, { cache: 'no-store', signal: AbortSignal.timeout(5000) });
+          if (_vc2.ok) {
+            const _vcfg2 = await _vc2.json();
+            if (_vcfg2.apiUrl && _vcfg2.apiUrl.startsWith('https://') && _vcfg2.apiUrl !== cfg.apiUrl) {
+              const _vh2 = await fetch(`${_vcfg2.apiUrl}/api/work/health`, { signal: AbortSignal.timeout(3000) });
+              if (_vh2.ok) {
+                API = _vcfg2.apiUrl;
+                localStorage.setItem('vraxia_api_url', _vcfg2.apiUrl);
+                const _vinp2 = document.getElementById('api-url-input');
+                if (_vinp2) _vinp2.value = _vcfg2.apiUrl;
+                console.log('[VRAXIA] Túnel recuperado via Vercel estável (local offline):', _vcfg2.apiUrl);
+                return;
+              }
+            }
+          }
+        } catch {}
         return;
       }
     }
@@ -2175,6 +2243,7 @@ const SEC_TO_NAV = {
   'sec-learning':       'nav-learning',
   'sec-network':        'nav-network',
   'sec-remote-dev':     'nav-remote-dev',
+  'sec-top-empresas':   'nav-top-empresas',
 };
 
 function setNavActive(secId) {
@@ -2202,8 +2271,9 @@ function navTo(secId) {
   if (main) main.scrollTop = 0;
   if (window.innerWidth <= 768) closeSidebar();
   // Lazy-load section data on first visit
-  if (resolved === 'sec-agenda')    loadAgenda();
-  if (resolved === 'sec-pipeline')  loadPipeline();
+  if (resolved === 'sec-agenda')        loadAgenda();
+  if (resolved === 'sec-pipeline')      loadPipeline();
+  if (resolved === 'sec-top-empresas')  loadTopEmpresas();
 }
 
 function filterPlatform(platform) {
@@ -2288,9 +2358,10 @@ function applyAppSort() {
   }
   const btnThIcon = $('btn-th-date-icon');
   if (btnThIcon) {
-    btnThIcon.textContent  = _dateSortDir === 'desc' ? '↓' : _dateSortDir === 'asc' ? '↑' : '↕';
+    btnThIcon.setAttribute('data-lucide', _dateSortDir === 'desc' ? 'arrow-down' : _dateSortDir === 'asc' ? 'arrow-up' : 'arrow-up-down');
     btnThIcon.style.opacity = _dateSortDir ? '1' : '.5';
     btnThIcon.style.color   = _dateSortDir ? '#60a5fa' : '';
+    lucide.createIcons({ nodes: [btnThIcon] });
   }
 
   const tbody = $('apps-tbody');
@@ -5426,6 +5497,171 @@ function pipStatusBadge(status) {
   const label = PIP_STATUS_LABEL[status] ?? status;
   const col   = PIP_STATUS_COLOR[status] ?? '#6b7280';
   return `<span style="font-size:11px;font-weight:700;color:${col};background:${col}18;padding:2px 8px;border-radius:20px;">${label}</span>`;
+}
+
+// ══ TOP EMPRESAS (GPTW 2025) ══════════════════════════════════════════════════
+const GPTW_COMPANIES = [
+  { name:'TOTVS',             id:'228296',   sector:'ERP/Tech',         logo:'🔷' },
+  { name:'SAP',               id:'2818',     sector:'ERP/Cloud',        logo:'🟦' },
+  { name:'Accenture',         id:'48925',    sector:'Consultoria',       logo:'🔶' },
+  { name:'Capgemini',         id:'163711',   sector:'Consultoria',       logo:'🟧' },
+  { name:'NTT DATA',          id:'18535',    sector:'TI Services',       logo:'🔵' },
+  { name:'Cognizant',         id:'54325',    sector:'TI Services',       logo:'🔹' },
+  { name:'EY',                id:'480384',   sector:'Consultoria',       logo:'🟡' },
+  { name:'Cisco',             id:'3517498',  sector:'Infraestrutura',    logo:'🌐' },
+  { name:'Salesforce',        id:'18790668', sector:'CRM/Cloud',         logo:'☁️' },
+  { name:'Meta',              id:'23769',    sector:'Big Tech',          logo:'🟣' },
+  { name:'Avanade',           id:'3033',     sector:'Microsoft/Consulting',logo:'🔷'},
+  { name:'CI&T',              id:'203563',   sector:'Digital/Agile',     logo:'🟢' },
+  { name:'Serasa Experian',   id:'105386250',sector:'Fintech/Data',      logo:'💳' },
+  { name:'TIM Brasil',        id:'788938',   sector:'Telecom/Tech',      logo:'📱' },
+  { name:'Radix Engineering', id:'906658',   sector:'Engenharia/AI',     logo:'⚙️' },
+  { name:'Schneider Electric',id:'40751352', sector:'Energia/IoT',       logo:'🟩' },
+  { name:'Senior Sistemas',   id:'27123',    sector:'ERP/SaaS',          logo:'🔸' },
+  { name:'e-Core',            id:'43551',    sector:'Outsourcing/Java',   logo:'☕' },
+  { name:'INDICIUM',          id:'25170536', sector:'Data/Analytics',    logo:'📊' },
+  { name:'Logcomex',          id:'3726003',  sector:'Logística/Tech',    logo:'📦' },
+  { name:'DBC Company',       id:'398921',   sector:'Digital/Agile',     logo:'🏢' },
+  { name:'Coopersystem',      id:'486525',   sector:'TI Services',       logo:'🤝' },
+  { name:'Icaro Tech',        id:'22978',    sector:'Cloud/DevOps',      logo:'🚀' },
+  { name:'Webmotors',         id:'53675',    sector:'Marketplace/Tech',  logo:'🚗' },
+  { name:'Petlove',           id:'3713624',  sector:'Pettech/Platform',  logo:'🐾' },
+  { name:'Pitang',            id:'7356',     sector:'Digital/UX',        logo:'🎨' },
+  { name:'Eloware',           id:'12731470', sector:'Software/SaaS',     logo:'💡' },
+  { name:'Mercos',            id:'12627031', sector:'B2B/SaaS',          logo:'🛒' },
+  { name:'Equinix',           id:'3279270',  sector:'Data Centers',      logo:'🏛️' },
+  { name:'Thomson Reuters',   id:'2487151',  sector:'Legal/Tech',        logo:'⚖️' },
+];
+
+let _teAllApps = [];
+let _teCurrentFilter = 'all';
+
+async function loadTopEmpresas() {
+  const grid = $('te-grid');
+  if (grid) grid.innerHTML = '<div class="empty-state col-span-3"><span class="spinner"></span> Carregando candidaturas...</div>';
+
+  try {
+    const r = await fetch(`${API}/api/work/applications?status=all&limit=2000`, { cache: 'no-store' });
+    const d = await r.json();
+    _teAllApps = Array.isArray(d) ? d : (d.applications ?? d.jobs ?? []);
+
+    renderTopEmpresas();
+  } catch (e) {
+    if (grid) grid.innerHTML = '<div class="empty-state col-span-3 text-red-400">Erro ao carregar dados. API offline?</div>';
+  }
+}
+
+function renderTopEmpresas() {
+  const search = ($('te-search')?.value ?? '').toLowerCase().trim();
+  const filter = _teCurrentFilter;
+
+  // Build per-company stats from applications
+  const companyMap = {};
+  for (const app of _teAllApps) {
+    const name = (app.company ?? '').toLowerCase();
+    if (!name) continue;
+    if (!companyMap[name]) companyMap[name] = { applied:0, pending:0, statuses:[] };
+    const st = (app.status ?? '').toLowerCase();
+    companyMap[name].statuses.push(st);
+    if (['applied','submitted','completed'].some(s => st.includes(s))) companyMap[name].applied++;
+    else if (['queued','running','pending'].some(s => st.includes(s))) companyMap[name].pending++;
+  }
+
+  const enriched = GPTW_COMPANIES.map(c => {
+    const key = c.name.toLowerCase();
+    // Fuzzy match: check if any app company name contains part of our company name
+    let stats = companyMap[key];
+    if (!stats) {
+      for (const [k, v] of Object.entries(companyMap)) {
+        if (k.includes(key.split(' ')[0]) || key.includes(k.split(' ')[0])) {
+          stats = v; break;
+        }
+      }
+    }
+    return { ...c, applied: stats?.applied ?? 0, pending: stats?.pending ?? 0, statuses: stats?.statuses ?? [] };
+  });
+
+  // KPI update
+  const withApps   = enriched.filter(c => c.applied > 0);
+  const noApps     = enriched.filter(c => c.applied === 0);
+  const totalApps  = enriched.reduce((s, c) => s + c.applied, 0);
+  $('te-total-applied').textContent      = totalApps;
+  $('te-companies-with-apps').textContent = withApps.length;
+  $('te-companies-pending').textContent   = noApps.length;
+
+  // Filter
+  let visible = enriched;
+  if (filter === 'applied') visible = withApps;
+  if (filter === 'pending') visible = noApps;
+  if (search) visible = visible.filter(c => c.name.toLowerCase().includes(search) || c.sector.toLowerCase().includes(search));
+
+  const grid = $('te-grid');
+  if (!grid) return;
+
+  if (!visible.length) {
+    grid.innerHTML = '<div class="empty-state col-span-3">Nenhuma empresa encontrada</div>';
+    return;
+  }
+
+  grid.innerHTML = visible.map(c => {
+    const hasApps   = c.applied > 0;
+    const hasPending = c.pending > 0;
+    const border    = hasApps ? 'rgba(34,197,94,.25)' : hasPending ? 'rgba(251,191,36,.2)' : 'rgba(255,255,255,.06)';
+    const statusDot = hasApps
+      ? '<span class="live-dot" style="background:#22c55e;box-shadow:0 0 5px rgba(34,197,94,.7)"></span>'
+      : hasPending
+      ? '<span class="live-dot" style="background:#fbbf24;box-shadow:0 0 5px rgba(251,191,36,.6)"></span>'
+      : '<span style="width:7px;height:7px;border-radius:50%;background:#374151;display:inline-block;flex-shrink:0;"></span>';
+
+    const linkedinUrl = `https://www.linkedin.com/jobs/search/?f_C=${c.id}&keywords=AI+OR+LLM+OR+Software+Engineer`;
+
+    return `<div class="glass rounded-xl p-4 card-hover" style="border:1px solid ${border};cursor:default;">
+      <div class="flex items-start gap-3 mb-3">
+        <div style="font-size:24px;flex-shrink:0;width:36px;text-align:center;">${c.logo}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="flex items-center gap-2 flex-wrap">
+            ${statusDot}
+            <span class="text-white font-semibold text-sm" style="white-space:nowrap;">${esc(c.name)}</span>
+          </div>
+          <div class="text-gray-600 text-xs mt-0.5">${esc(c.sector)}</div>
+        </div>
+        <a href="${linkedinUrl}" target="_blank" title="Buscar vagas no LinkedIn" style="color:#60a5fa;font-size:11px;flex-shrink:0;text-decoration:none;opacity:.7;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7">
+          <i data-lucide="external-link" style="width:13px;height:13px"></i>
+        </a>
+      </div>
+      <div class="flex items-center gap-3 mt-2">
+        <div class="glass rounded-lg px-3 py-2 text-center flex-1" style="border:1px solid rgba(34,197,94,.15)">
+          <div class="text-lg font-bold font-mono text-green-400">${c.applied}</div>
+          <div class="text-xs text-gray-600">Enviadas</div>
+        </div>
+        <div class="glass rounded-lg px-3 py-2 text-center flex-1" style="border:1px solid rgba(251,191,36,.12)">
+          <div class="text-lg font-bold font-mono text-yellow-400">${c.pending}</div>
+          <div class="text-xs text-gray-600">Na fila</div>
+        </div>
+        <div class="glass rounded-lg px-3 py-2 text-center flex-1" style="border:1px solid rgba(255,255,255,.05)">
+          <div class="text-xs font-mono" style="color:#6b7280;font-size:10px;">ID LinkedIn</div>
+          <div class="text-xs font-mono text-gray-500">${c.id}</div>
+        </div>
+      </div>
+      ${c.statuses.length ? `
+      <div class="mt-2 flex flex-wrap gap-1">
+        ${[...new Set(c.statuses)].slice(0,4).map(s => `<span class="badge ${s.includes('applied')||s.includes('submitted')||s.includes('completed') ? 'badge-green' : s.includes('failed')||s.includes('error') ? 'badge-red' : s.includes('pending')||s.includes('queue') ? 'badge-yellow' : 'badge-gray'}">${esc(s)}</span>`).join('')}
+      </div>` : ''}
+    </div>`;
+  }).join('');
+
+  // Re-init lucide icons for new elements
+  if (window.lucide) lucide.createIcons();
+}
+
+function filterTopEmpresas(filter) {
+  if (filter) {
+    _teCurrentFilter = filter;
+    document.querySelectorAll('[id^="te-filter-"]').forEach(b => b.classList.remove('active'));
+    const btn = $('te-filter-' + filter);
+    if (btn) btn.classList.add('active');
+  }
+  renderTopEmpresas();
 }
 
 async function loadPipeline(silent = false) {

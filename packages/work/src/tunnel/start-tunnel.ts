@@ -141,8 +141,9 @@ function onTunnelUrl(url: string, provider: 'cloudflare' | 'ngrok'): void {
   console.log(`\n[Tunnel] ✅ URL pública (${provider}): ${url}`);
   console.log(`[Tunnel] Dashboard: https://vraxia-platform.vercel.app\n`);
 
-  // Redeploy Vercel sempre que a URL muda (novo túnel = novo api-config.json)
-  if (urlChanged) {
+  // Redeploy Vercel sempre que a URL muda OU na primeira URL do processo
+  // (garante que o Vercel nunca fica com api-config.json desatualizado após restart)
+  if (urlChanged || wasDown) {
     deployDashboard(url);
   }
 
@@ -173,8 +174,8 @@ function resolveCloudflared(): string {
 async function startCloudflared(restartCount = 0): Promise<void> {
   const bin = resolveCloudflared();
   if (!bin) {
-    console.log('[Tunnel] cloudflared não disponível — iniciando ngrok direto.');
-    return startNgrok(0);
+    console.error('[Tunnel] cloudflared não disponível e ngrok está desabilitado (limite mensal esgotado). Encerrando.');
+    process.exit(1);
   }
 
   console.log(`[Tunnel] Iniciando cloudflared (tentativa ${restartCount + 1})...`);
@@ -206,24 +207,27 @@ async function startCloudflared(restartCount = 0): Promise<void> {
   proc.on('exit', (code) => {
     if (shutdownRequested) { process.exit(0); return; }
 
-    // 429 rate limit → muda para ngrok imediatamente
+    // 429 rate limit → reinicia cloudflared após delay (ngrok desabilitado: limite mensal esgotado)
     if (got429) {
-      console.log('\n[Tunnel] Cloudflare rate-limit (429) — trocando para ngrok...');
-      return startNgrok(0);
+      console.log('\n[Tunnel] Cloudflare rate-limit (429) — aguardando 60s e reiniciando cloudflared...');
+      setTimeout(() => startCloudflared(0).catch(err => {
+        console.error('[Tunnel] Erro ao reiniciar cloudflared após 429:', err);
+      }), 60_000);
+      return;
     }
 
     const attempt = restartCount + 1;
-    const maxRetries = 5;
+    const maxRetries = 10;
     if (attempt > maxRetries) {
-      console.log('[Tunnel] cloudflared esgotou tentativas — trocando para ngrok...');
-      return startNgrok(0);
+      console.error('[Tunnel] cloudflared esgotou tentativas — encerrando.');
+      process.exit(1);
+      return;
     }
 
     const delay = Math.min(5_000 * Math.pow(2, attempt - 1), 120_000);
     console.log(`\n[Tunnel] cloudflared encerrou (code ${code ?? 'null'}) — tentativa ${attempt}/${maxRetries}, aguardando ${delay / 1000}s...`);
     setTimeout(() => startCloudflared(attempt).catch(err => {
       console.error('[Tunnel] Erro ao reiniciar cloudflared:', err);
-      startNgrok(0);
     }), delay);
   });
 }
@@ -284,9 +288,15 @@ async function startNgrok(restartCount = 0): Promise<void> {
   const handleOutput = (data: Buffer): void => {
     const text = data.toString();
     // ERR_NGROK_108 = limite de sessões — não adianta reiniciar sem limpar
+    // ERR_NGROK_3200 = endpoint offline (processo morreu e endpoint expirou)
     if (text.includes('ERR_NGROK_108') || text.includes('limited to') || text.includes('authentication failed')) {
       sessionErr = true;
       stopPolling();
+    }
+    // Endpoint offline: mata e reinicia imediatamente
+    if (text.includes('ERR_NGROK_3200') || text.includes('is offline')) {
+      stopPolling();
+      proc.kill();
     }
     process.stdout.write('[ngrok] ' + text);
   };
@@ -340,8 +350,5 @@ try { fs.writeFileSync(TUNNEL_URL_FILE, ''); } catch {}
 
 startCloudflared(0).catch(err => {
   console.error('[Tunnel] Erro fatal no cloudflared:', err);
-  startNgrok(0).catch(err2 => {
-    console.error('[Tunnel] Erro fatal no ngrok:', err2);
-    process.exit(1);
-  });
+  process.exit(1);
 });

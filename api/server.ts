@@ -121,6 +121,15 @@ app.get("/vraxia/*splat", (_req, res) => {
   res.sendFile(path.join(dashboardDir, "index.html"));
 });
 
+// ── Work Dashboard ────────────────────────────────────────────────────────────
+const workDashboardDir = path.resolve(process.cwd(), "packages/work/dashboard");
+logger.info(`Work dashboard dir: ${workDashboardDir}`);
+app.use("/work", express.static(workDashboardDir));
+app.get("/work", (_req, res) => res.sendFile("index.html", { root: workDashboardDir }));
+app.get("/work/*splat", (_req, res) => {
+  res.sendFile("index.html", { root: workDashboardDir });
+});
+
 // Default redirect to dashboard
 app.get("/", (_req, res) => res.redirect("/vraxia"));
 
